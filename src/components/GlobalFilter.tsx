@@ -22,7 +22,7 @@ export default function GlobalFilter(_props:{onOpenMobileMenu?:()=>void;onOpenCo
     return <label className="cx-field" key={key}><span>{label}</span><select value={selected} onChange={e=>setFilter(key,e.target.value?{operator:'in',values:[e.target.value]}:null)}>
       <option value="">All</option>{selected&&!choices.includes(selected)&&<option value={selected}>{selected}</option>}{choices.map(v=><option key={v} value={v}>{v}</option>)}</select></label>;
   };
-  const booleanSelect=(key:string,label:string)=><label className="cx-field" key={key}><span>{label}</span><select value={filters[key]?.operator==='equals'?String(filters[key].value):''} onChange={e=>setFilter(key,e.target.value===''?null:{operator:'equals',value:e.target.value==='true'})}><option value="">All, including unknown</option><option value="true">Recorded yes</option><option value="false">Recorded no</option></select></label>;
+  const booleanSelect=(key:string,label:string)=><label className="cx-field" key={key}><span>{label}</span><select id={`legacy-${key}`} value={filters[key]?.operator==='equals'?String(filters[key].value):''} onChange={e=>setFilter(key,e.target.value===''?null:{operator:'equals',value:e.target.value==='true'})}><option value="">All, including unknown</option><option value="true">Recorded yes</option><option value="false">Recorded no</option></select></label>;
   return <section className="cx-filter-panel" aria-label="Legacy report filters">
     <div className="cx-filter-heading"><div><h2>Report filters</h2><p>Capture-cohort scope. Supported filters depend on the selected report.</p></div><div className="cx-inline-actions">
       <button type="button" className="cx-button-secondary" onClick={clearFilters} disabled={!Object.keys(filters).length}>Clear filters</button>
@@ -34,7 +34,11 @@ export default function GlobalFilter(_props:{onOpenMobileMenu?:()=>void;onOpenCo
       {select('vendor','Vendor',opts.vendors)}{select('source','Lead Source',opts.sources)}{select('medium','Traffic Medium',opts.mediums)}
     </div>
     <details className="cx-filter-details"><summary><SlidersHorizontal size={15}/>Validation and outcome filters</summary><div className="cx-filter-grid mt-4">
-      {select('grade','Recorded Lead Grade',opts.grades)}{select('vetting','Vetting Classification',opts.vettings)}{booleanSelect('sale','Sale Recorded')}{booleanSelect('activated','Activation Recorded')}{booleanSelect('rpc','Right-Party Contact Recorded')}{booleanSelect('valid_lead','Lead Validity')}
+      {select('grade','Recorded Lead Grade',opts.grades)}{select('vetting','Vetting Classification',opts.vettings)}{booleanSelect('sale','Sale Recorded')}{booleanSelect('activated','Activation Recorded')}{booleanSelect('rpc','Right-Party Contact Recorded')}{booleanSelect('valid_lead','Lead Validity')}{booleanSelect('valid_idno','Recorded National ID Validity')}{booleanSelect('phone_valid','Recorded Phone Validity')}
+      <label className="cx-field"><span>Recorded Call Attempts</span><select id="legacy-calls" value={filters.calls?.operator==='equals'?String(filters.calls.value):filters.calls?.operator==='between'?`${filters.calls.min}-${filters.calls.max}`:''}
+        onChange={e=>{const val=e.target.value;if(!val)setFilter('calls',null);else if(val.includes('-')){const [min,max]=val.split('-').map(Number);setFilter('calls',{operator:'between',min,max});}else setFilter('calls',{operator:'equals',value:Number(val)});}}>
+        <option value="">All attempt counts</option><option value="0">0 recorded attempts</option><option value="1">1 recorded attempt</option><option value="2">2 recorded attempts</option><option value="3-5">3–5 recorded attempts</option><option value="6-10">6–10 recorded attempts</option>
+      </select></label>
     </div></details>
     {Object.keys(filters).length>0&&<div className="cx-filter-chips" aria-label="Applied filters">{Object.entries(filters).map(([key,value]:[string,any])=><button className="cx-filter-chip" key={key} onClick={()=>setFilter(key,null)} aria-label={`Remove ${key} filter`}><span>{key}: {value.values?.join(', ')??String(value.value??`${value.min}–${value.max}`)}</span><X size={13}/></button>)}</div>}
     <p className="cx-filter-note">Reloading may use the server cache; it does not refresh warehouse ingestion.</p>

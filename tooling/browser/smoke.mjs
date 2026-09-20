@@ -3,6 +3,7 @@ import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
+import { verifyRestoredFilters } from './filter-controls.mjs';
 const fixture=JSON.parse(fs.readFileSync('tests/fixtures/reporting-reference.json','utf8'));
 const server=spawn(process.execPath,['dist/server/server.mjs'],{env:{...process.env,NODE_ENV:'production',PORT:'3187',IAP_AUDIENCE:'',CX_REPORTING_DATASET:''},stdio:'pipe'});
 let browser, activePage;
@@ -93,6 +94,7 @@ try{
     await page.goto('http://127.0.0.1:3187/call-performance');
     await page.getByRole('button',{name:'Report filters',exact:true}).click();
     const filterPanel=page.getByRole('region',{name:'Legacy report filters'});await filterPanel.waitFor();
+    checks+=await verifyRestoredFilters(page,viewport);
     const requestsBefore=requestCounts['/api/analytics/calls']||0;
     await page.getByRole('button',{name:'Reload results',exact:true}).click();
     await page.waitForTimeout(250);

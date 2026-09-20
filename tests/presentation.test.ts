@@ -47,3 +47,9 @@ test('pending evidence requests are cancelled on scope changes and unmount',()=>
 test('legacy scope remains visible while report filters are collapsed',()=>{
   const app=read('src/App.tsx');assert.match(app,/Capture dates: \{startDate\} to \{endDate\}/);assert.match(app,/Object.keys\(filters \|\| \{\}\).length/);
 });
+
+test('streamlined filters retain call-attempt, ID and phone controls',()=>{
+  const source=read('src/components/GlobalFilter.tsx');
+  assert.match(source,/Recorded Call Attempts/);assert.match(source,/booleanSelect\('valid_idno'/);assert.match(source,/booleanSelect\('phone_valid'/);
+  assert.match(source,/operator:'between',min,max/);assert.match(source,/value:Number\(val\)/);
+});
