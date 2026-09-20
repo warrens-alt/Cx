@@ -1,0 +1,125 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Public Sans", "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  /* Core Brand & Canvas Variables */
+  --color-navy: #0F1E2E;
+  --color-navy-dark: #0A1520;
+  --color-navy-surface: #162B3D;
+  --color-teal: #0D9488;
+  --color-teal-dark: #0F766E;
+  --color-teal-light: #F0FDFA;
+  
+  --color-app-bg: #F8FAFC;
+  --color-surface: #FFFFFF;
+  --color-surface-sec: #F1F5F9;
+  
+  --color-text-main: #0F172A;
+  --color-text-sec: #475569;
+  --color-text-mute: #64748B;
+  
+  --color-border-subtle: #E2E8F0;
+  --color-border-strong: #CBD5E1;
+
+  /* Semantic */
+  --color-semantic-pos: #047857;
+  --color-semantic-pos-bg: #ECFDF5;
+  --color-semantic-neg: #BE123C;
+  --color-semantic-neg-bg: #FFF1F2;
+  --color-semantic-warn: #B45309;
+  --color-semantic-warn-bg: #FFFBEB;
+  --color-semantic-info: #0369A1;
+  --color-semantic-info-bg: #F0F9FF;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-app-bg);
+    color: var(--color-text-main);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.011em;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+  }
+}
+
+@layer utilities {
+  .fade-in {
+    animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  
+  /* Reusable text hierarchy */
+  .text-page-title {
+    font-family: var(--font-display);
+    @apply text-2xl sm:text-3xl leading-tight font-bold text-text-main tracking-tight;
+  }
+  .text-section-title {
+    font-family: var(--font-display);
+    @apply text-lg sm:text-xl leading-normal font-semibold text-text-main tracking-tight;
+  }
+  .text-card-title {
+    @apply text-xs font-semibold text-text-sec uppercase tracking-wider leading-normal;
+  }
+  .text-kpi-value {
+    font-family: var(--font-display);
+    @apply text-2xl sm:text-3xl leading-tight font-bold text-text-main tracking-tight;
+  }
+  
+  /* Reusable component shells */
+  .enterprise-card {
+    @apply bg-surface rounded-xl border border-border-subtle shadow-[0_1px_3px_0_rgba(15,23,42,0.03),0_1px_2px_-1px_rgba(15,23,42,0.02)] transition-all duration-150;
+  }
+  
+  .enterprise-table {
+    @apply w-full text-sm text-left;
+  }
+  .enterprise-table th {
+    @apply px-4 py-3 bg-slate-50/80 text-text-sec font-semibold border-b border-border-strong uppercase tracking-wider text-[11px] sticky top-0 backdrop-blur-xs;
+  }
+  .enterprise-table td {
+    @apply px-4 py-3.5 border-b border-border-subtle text-text-main font-normal text-sm leading-normal;
+  }
+  .enterprise-table tr {
+    @apply hover:bg-slate-50/70 transition-colors;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Custom Scrollbar for a sleek, unobtrusive feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+@layer components {
+  .btn-primary {
+    @apply h-9 px-4 inline-flex items-center justify-center bg-teal text-white text-xs font-semibold rounded-lg hover:bg-teal-dark transition-all shadow-xs active:scale-[0.98];
+  }
+  .btn-secondary {
+    @apply h-9 px-4 inline-flex items-center justify-center bg-surface border border-border-strong text-text-main text-xs font-semibold rounded-lg hover:bg-surface-sec transition-all shadow-xs active:scale-[0.98];
+  }
+  .btn-icon {
+    @apply h-9 w-9 inline-flex items-center justify-center bg-surface border border-border-strong text-text-main rounded-lg hover:bg-surface-sec transition-all shadow-xs active:scale-[0.98];
+  }
+}
