@@ -1,36 +1,19 @@
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { serverQueryCache } from './cache';
-
-/**
- * Express middleware to cache GET endpoints by URL and query parameters.
- * Supports TTL override in seconds.
- */
-export function cacheResponse(ttlSeconds: number = 60) {
+/** Cache only successful GET responses and never share permission-dependent payloads between principals. */
+export function cacheResponse(ttlSeconds = 60) {
   return (req: Request, res: Response, next: NextFunction) => {
-    // Only cache GET requests
-    if (req.method !== 'GET') {
-      return next();
-    }
-
-    const cacheKey = `${req.baseUrl}${req.path}?${JSON.stringify(req.query)}`;
-    const cached = serverQueryCache.get(cacheKey);
-
-    if (cached) {
-      res.setHeader('X-Cache', 'HIT');
-      return res.json(cached);
-    }
-
+    if (req.method !== 'GET' || !res.locals.principal) return next();
+    const principal = res.locals.principal;
+    const key = JSON.stringify([principal.subject, principal.role, [...principal.tenants].sort(), req.baseUrl, req.path, res.locals.scope, req.query]);
+    const cached = serverQueryCache.get(key);
+    if (cached !== null) { res.setHeader('X-Cache', 'HIT'); return res.json(cached); }
     res.setHeader('X-Cache', 'MISS');
-
-    // Intercept res.json to capture response
     const originalJson = res.json.bind(res);
     res.json = (body: any) => {
-      if (res.statusCode >= 200 && res.statusCode < 300 && body && body.success !== false) {
-        serverQueryCache.set(cacheKey, body, ttlSeconds);
-      }
+      if (res.statusCode >= 200 && res.statusCode < 300 && body?.success === true) serverQueryCache.set(key, body, ttlSeconds);
       return originalJson(body);
     };
-
     next();
   };
 }

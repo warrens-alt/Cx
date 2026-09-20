@@ -1,39 +1,33 @@
-import { BigQuery } from '@google-cloud/bigquery';
-
-const bqClientCache = new Map<string, BigQuery>();
-
-export function getBigQueryClient(projectId: string): BigQuery {
-  if (bqClientCache.has(projectId)) {
-    return bqClientCache.get(projectId)!;
-  }
-
-  let credentials;
-  try {
-    if (process.env.BIGQUERY_CREDENTIALS) {
-      credentials = JSON.parse(process.env.BIGQUERY_CREDENTIALS);
-    }
-  } catch (e) {
-    console.warn("Failed to parse BIGQUERY_CREDENTIALS, falling back to Application Default Credentials");
-  }
-  
-  const client = new BigQuery({ projectId, credentials });
-  bqClientCache.set(projectId, client);
-  return client;
+import { BigQuery, type Query } from '@google-cloud/bigquery';
+import { vendorScope } from '../analyticsContext';
+import { tableIdentifier } from './config';
+const clients = new Map<string, AnalyticsBigQueryClient>();
+export function guardedQueryOptions(options: Query): Query {
+  const configured = Number(process.env.BIGQUERY_MAX_BYTES_BILLED || 1000000000);
+  if (!Number.isSafeInteger(configured) || configured <= 0) throw new Error('Invalid BIGQUERY_MAX_BYTES_BILLED');
+  const requested = options.maximumBytesBilled ? Number(options.maximumBytesBilled) : configured;
+  if (!Number.isSafeInteger(requested) || requested <= 0) throw new Error('Invalid query budget');
+  return { ...options, useLegacySql: false, maximumBytesBilled: String(Math.min(configured, requested)), params: { ...options.params, ...vendorScope().params } };
 }
-
-export async function checkBigQueryHealth(projectId: string, datasetId: string, tableId: string) {
-  const bq = getBigQueryClient(projectId);
-  try {
-    const query = `SELECT MAX(fetched) as latest FROM \`${projectId}.${datasetId}.${tableId}\` LIMIT 1`;
-    const [rows] = await bq.query({ query });
-    return {
-      status: 'Healthy',
-      latestData: rows[0]?.latest || null
-    };
-  } catch (error: any) {
-    return {
-      status: 'Error',
-      error: error.message
-    };
+/** Keep the SDK behind one scoped query boundary so older reporting modules receive the same vendor bindings. */
+export class AnalyticsBigQueryClient {
+  constructor(private readonly bq: BigQuery) {}
+  query(options: Query) { return this.bq.query(guardedQueryOptions(options)); }
+  createQueryJob(options: Query) { return this.bq.createQueryJob(guardedQueryOptions(options)); }
+  getDatasets() { return this.bq.getDatasets(); }
+}
+export function getBigQueryClient(projectId: string): AnalyticsBigQueryClient {
+  if (!clients.has(projectId)) {
+    let credentials;
+    if (process.env.BIGQUERY_CREDENTIALS) {
+      try { credentials = JSON.parse(process.env.BIGQUERY_CREDENTIALS); }
+      catch { throw new Error('BIGQUERY_CREDENTIALS is invalid; refusing a silent identity fallback'); }
+    }
+    clients.set(projectId, new AnalyticsBigQueryClient(new BigQuery({ projectId, credentials })));
   }
+  return clients.get(projectId)!;
+}
+export async function checkBigQueryHealth(projectId: string, datasetId: string, tableId: string) {
+  const [rows] = await getBigQueryClient(projectId).query({ query: `SELECT MAX(SAFE_CAST(fetched AS TIMESTAMP)) AS latest FROM ${tableIdentifier(`${projectId}.${datasetId}.${tableId}`)}` });
+  return { status: 'Connected', latestData: rows[0]?.latest || null, freshnessVerified: false };
 }
