@@ -3,15 +3,8 @@ import { getClientConfig } from './config';
 import { getBaseSemanticLayer } from './views';
 import { buildLeadWhere, validateScope, RequestError, type QueryScope } from './filters';
 import { finiteOrNull } from './integrity';
-export const ALLOWED_METRICS: Record<string, string> = {
-  leads: 'COUNT(*)', delivered: 'COUNTIF(has_delivery)', called: 'COUNTIF(has_call)', rpcs: 'COUNTIF(has_rpc)',
-  sales: 'COUNTIF(has_sale)', billable_sales: 'COUNTIF(has_billable_sale)', activations: 'COUNTIF(has_activation)', revenue: 'SUM(total_revenue)',
-  delivery_rate: '100 * SAFE_DIVIDE(COUNTIF(has_delivery), COUNT(*))', dial_rate: '100 * SAFE_DIVIDE(COUNTIF(has_call), COUNT(*))',
-  call_coverage: '100 * SAFE_DIVIDE(COUNTIF(has_call), COUNTIF(has_delivery))', rpc_rate: '100 * SAFE_DIVIDE(COUNTIF(has_rpc), COUNTIF(has_call))',
-  sale_rate: '100 * SAFE_DIVIDE(COUNTIF(has_sale), COUNTIF(has_call))', lead_to_sale_rate: '100 * SAFE_DIVIDE(COUNTIF(has_sale), COUNT(*))',
-  billable_sale_rate: '100 * SAFE_DIVIDE(COUNTIF(has_billable_sale), COUNTIF(has_sale))', activation_rate: '100 * SAFE_DIVIDE(COUNTIF(has_activation), COUNTIF(has_sale))',
-  revenue_per_lead: 'SAFE_DIVIDE(SUM(total_revenue), COUNT(*))', revenue_per_sale: 'SAFE_DIVIDE(SUM(total_revenue), COUNTIF(has_sale))', calls_per_lead: 'SAFE_DIVIDE(SUM(total_calls), COUNT(*))',
-};
+import { EXPLORER_EXPRESSIONS, EXPLORER_METRICS } from '../../contracts/legacyMetrics';
+export const ALLOWED_METRICS = EXPLORER_EXPRESSIONS;
 export const getAllowedDimensions = (timezone: string): Record<string, string> => {
   new Intl.DateTimeFormat('en', { timeZone: timezone });
   return { date: 'CAST(capture_date AS STRING)', week: "FORMAT_DATE('%G-W%V', capture_date)", month: "FORMAT_DATE('%Y-%m', capture_date)",
@@ -42,7 +35,7 @@ export async function executeDynamicQuery(input: DynamicScope) {
     return { dim1: r.dim1, dim2: r.dim2, value: finiteOrNull(r.value), sampleSize: l,
       fullFunnel: { leads: l, delivered: Number(r.delivered), called: c, rpcs: Number(r.rpcs), sales: s, billableSales: b, activations: Number(r.activations), revenue: rev,
         deliveryRate: pct(Number(r.delivered), l), callRate: pct(c, l), rpcRate: pct(Number(r.rpcs), c), saleRate: pct(s, c), leadToSaleRate: pct(s, l), billableSaleRate: pct(b, s), activationRate: pct(Number(r.activations), s), revPerLead: l > 0 ? rev / l : null } };
-  }), metadata: { metric: input.metric, dimension: input.dimension, secondaryDimension: input.secondaryDimension, durationMs: Date.now() - started, truncated: rows.length > 1000, rateUnit: 'percent', appliedFilters: scope.filters } };
+  }), metadata: { metricDefinition: EXPLORER_METRICS.find(m => m.id === input.metric), metric: input.metric, dimension: input.dimension, secondaryDimension: input.secondaryDimension, durationMs: Date.now() - started, truncated: rows.length > 1000, rateUnit: 'percent', appliedFilters: scope.filters } };
 }
 export function previousPeriod(startDate: string, endDate: string) {
   const scope = validateScope({ startDate, endDate });
@@ -66,7 +59,7 @@ export async function generateDriverInsights(input: DynamicScope) {
     return { segment, current: cv, previous: pv, change, pctChange: change !== null && pv !== null && pv !== 0 ? 100 * change / Math.abs(pv) : null,
       currentVolume: Number(c?.volume) || 0, previousVolume: Number(p?.volume) || 0 };
   }).sort((a, b) => Math.abs(b.change ?? 0) - Math.abs(a.change ?? 0));
-  return { data, metadata: { metric: input.metric, dimension: input.dimension, daysCompared: previous.days,
+  return { data, metadata: { metricDefinition: EXPLORER_METRICS.find(m => m.id === input.metric), metric: input.metric, dimension: input.dimension, daysCompared: previous.days,
     currentPeriod: { startDate, endDate }, previousPeriod: previous, appliedFilters: scope.filters,
     interpretation: 'Observed differences, not evidence of causation; capture cohorts may differ in outcome maturity.' } };
 }

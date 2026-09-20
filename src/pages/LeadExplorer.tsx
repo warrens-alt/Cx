@@ -84,11 +84,11 @@ export default function LeadExplorer() {
                 <th className="px-4 py-3.5">Lead ID</th>
                 <th className="px-4 py-3.5">Capture Time</th>
                 <th className="px-4 py-3.5">Source</th>
-                <th className="px-4 py-3.5">Campaign</th>
+                <th className="px-4 py-3.5">Traffic Medium</th>
                 <th className="px-4 py-3.5">Quality</th>
-                <th className="px-4 py-3.5 text-center">Calls</th>
+                <th className="px-4 py-3.5 text-center">Recorded Call Attempts</th>
                 <th className="px-4 py-3.5">Status</th>
-                <th className="px-4 py-3.5 text-right">Value</th>
+                <th className="px-4 py-3.5 text-right">Recorded Revenue</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">

@@ -1,3 +1,4 @@
+import { LEGACY_LABELS } from '../../contracts/naming';
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useClient } from '../lib/ClientContext';
@@ -24,10 +25,10 @@ export default function Overview() {
   const primary = [
     { label: 'Fetched Leads', metric: 'leads', value: data.leads },
     { label: 'Delivered Leads', metric: 'delivered', value: data.delivered },
-    { label: 'Called Leads', metric: 'called', value: data.called },
-    { label: 'Recorded Sales', metric: 'sales', value: data.sales },
-    { label: 'Sales with Matched Revenue', metric: 'billable_sales', value: data.billableSales },
-    { label: 'Recorded Activations', metric: 'activations', value: data.activations },
+    { label: 'Dialled Leads', metric: 'called', value: data.called },
+    { label: 'Leads with Sales', metric: 'sales', value: data.sales },
+    { label: 'Leads with Sales and Recorded Revenue', metric: 'billable_sales', value: data.billableSales },
+    { label: 'Leads with Activations', metric: 'activations', value: data.activations },
     { label: 'Recorded Revenue', metric: 'revenue', value: data.revenue },
   ];
   return <PageShell>
@@ -44,15 +45,15 @@ export default function Overview() {
           onWhyChanged={() => setAnalyseMetric({ id: card.metric, label: card.label })} onAnalyse={() => setAnalyseMetric({ id: card.metric, label: card.label })} /></div>)}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <KpiCard title="Fetched Lead-to-Sale Rate" value={data.leadToSaleRate} suffix="%" subtitle="Recorded sales / fetched leads" />
-        <KpiCard title="Called Lead-to-Sale Rate" value={data.saleRate} suffix="%" subtitle="Recorded sales / called leads" />
-        <KpiCard title="Sale-to-Activation Rate" value={data.activationRate} suffix="%" subtitle="Recorded activations / recorded sales" />
+        <KpiCard title={LEGACY_LABELS.lead_to_sale_rate} value={data.leadToSaleRate} suffix="%" subtitle="Leads with sales / fetched leads" />
+        <KpiCard title={LEGACY_LABELS.sale_rate} value={data.saleRate} suffix="%" subtitle="Leads with sales / dialled leads" />
+        <KpiCard title={LEGACY_LABELS.activation_rate} value={data.activationRate} suffix="%" subtitle="Leads with activations / leads with sales" />
       </div>
       {(data.attentionItems || []).length > 0 && <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {data.attentionItems.map((item: any) => <article key={item.id} className="enterprise-card p-5"><h2 className="font-semibold">{item.title}</h2><p className="mt-2">{item.magnitude}</p><p className="text-sm mt-2">{item.reason}</p><Link className="underline text-sm" to={{ pathname: item.actionPath, search: location.search }}>{item.actionLabel}</Link></article>)}
       </section>}
       <TrendChart title="Daily Capture-Cohort Performance" subtitle="Outcomes grouped by lead capture date, not sale or payment date." data={data.trend || []} xAxisKey="date" currentKey={trendMetric}
-        options={[{ label: 'Fetched Leads', value: 'leads' }, { label: 'Called Leads', value: 'called' }, { label: 'Recorded Sales', value: 'sales' }, { label: 'Recorded Revenue', value: 'revenue' }]}
+        options={[{ label: 'Fetched Leads', value: 'leads' }, { label: 'Dialled Leads', value: 'called' }, { label: 'Leads with Sales', value: 'sales' }, { label: 'Recorded Revenue', value: 'revenue' }]}
         selectedOption={trendMetric} onOptionChange={setTrendMetric} valuePrefix={trendMetric === 'revenue' ? currency : ''} height={360} />
       <HorizontalBarChart title="Largest Sources by Lead Volume" subtitle="Up to ten sources; this is not a complete source-share distribution." data={data.sources || []} categoryKey="source" valueKey="leads" height={320} />
     </div>

@@ -46,13 +46,13 @@ export default function Outcomes() {
 
   // Build 7-stage commercial funnel steps for FunnelWaterfall matching Master Taxonomy
   const commercialFunnelSteps: FunnelStep[] = [
-    { label: 'Fetched Leads', value: Number(funnel.step_1_captured_leads || summary.total_leads || 0), isTerminal: false, costMetric: 'CPL', itemNo: 22 },
+    { label: 'Fetched Leads', value: Number(funnel.step_1_captured_leads ?? 0), isTerminal: false, costMetric: 'CPL', itemNo: 22 },
     { label: 'Delivered Leads', value: Number(funnel.step_2_delivered_leads || 0), isTerminal: false, costMetric: 'CPL.Delivered', itemNo: 33 },
-    { label: 'Dialed Leads', value: Number(funnel.step_3_called_leads || 0), isTerminal: false, costMetric: 'CPL.Dialed', itemNo: 37 },
-    { label: 'Right Party Contact', value: Number(funnel.step_4_rpc_leads || 0), isTerminal: false, costMetric: 'CP.RPC', itemNo: 39 },
-    { label: 'Sales', value: Number(funnel.step_5_sale_leads || summary.total_sales || 0), isTerminal: false, costMetric: 'CP.Sale', itemNo: 40 },
-    { label: 'Delivered Sales', value: Number(funnel.step_6_billable_sale_leads || summary.billable_sales || 0), isTerminal: false, costMetric: 'CPS.Delivered', itemNo: 45 },
-    { label: 'Activated Sales', value: Number(funnel.step_7_activated_leads || 0), isTerminal: true, costMetric: 'CPS.Activated', itemNo: 46 }
+    { label: 'Dialled Leads', value: Number(funnel.step_3_called_leads || 0), isTerminal: false, costMetric: 'CPL.Dialed', itemNo: 37 },
+    { label: 'Leads with RPC', value: Number(funnel.step_4_rpc_leads || 0), isTerminal: false, costMetric: 'CP.RPC', itemNo: 39 },
+    { label: 'Leads with Sales', value: Number(funnel.step_5_sale_leads ?? 0), isTerminal: false, costMetric: 'CP.Sale', itemNo: 40 },
+    { label: 'Leads with Sales and Recorded Revenue', value: Number(funnel.step_6_billable_sale_leads ?? 0), isTerminal: false, costMetric: undefined, itemNo: undefined },
+    { label: 'Leads with Activations', value: Number(funnel.step_7_activated_leads || 0), isTerminal: true, costMetric: 'CPS.Activated', itemNo: 46 }
   ];
 
   // Aggregate vendor-level billable vs unbilled sales for stacked visual comparison
@@ -79,7 +79,7 @@ export default function Outcomes() {
     <PageShell>
       <PageHeader 
         title="Commercial Outcomes & Revenue Intelligence" 
-        description="Delivered vs unbilled sales reconciliation, status economics, revenue leakage, and full commercial funnel tracking."
+        description="Lead-level funnel counts and transaction-row sale flags. Positive recorded revenue does not prove sale delivery, billability or collection."
       >
         <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-1.5 rounded-lg text-xs font-medium">
           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -91,55 +91,56 @@ export default function Outcomes() {
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-4 lg:gap-5">
         <KpiCard
           title="Fetched Leads"
-          value={funnel.step_1_captured_leads || summary.total_leads || 0}
-          subtitle="Top of funnel (CPL)"
+          value={funnel.step_1_captured_leads ?? 0}
+          subtitle="Distinct fetched lead records"
           lineage={METRICS.total_leads}
         />
         <KpiCard
-          title="Sales"
+          title="Sale Flags (Transaction Rows)"
           value={summary.total_sales || 0}
-          subtitle="All reported sales (CP.Sale)"
-          lineage={METRICS.sales}
+          subtitle="Transaction rows with a sale flag"
+          lineage={METRICS.transaction_sale_flags}
         />
         <KpiCard
-          title="Delivered Sales"
+          title="Sale Flags with Recorded Revenue"
           value={summary.billable_sales || 0}
-          subtitle={`${Number(summary.billable_conversion_pct || 0).toFixed(1)}% delivery (CPS.Delivered)`}
-          lineage={METRICS.delivered_sales}
+          subtitle={`${Number(summary.billable_conversion_pct || 0).toFixed(1)}% of sale flag rows`}
+          lineage={METRICS.transaction_sales_with_revenue}
         />
         <KpiCard
-          title="Unbilled Sales"
+          title="Sale Flags without Matched Revenue"
           value={summary.unbilled_sales || 0}
-          subtitle={`${Number(summary.revenue_leakage_pct || 0).toFixed(1)}% revenue leakage`}
+          subtitle={`${Number(summary.revenue_leakage_pct || 0).toFixed(1)}% of sale flag rows without matched revenue`}
         />
         <KpiCard
-          title="Total Sales Value"
+          title="Recorded Revenue"
           value={Math.round(summary.total_revenue || 0)}
           prefix={currencyPrefix}
-          subtitle="Realized revenue"
+          subtitle="Expected or recorded value; not verified cash"
           lineage={METRICS.revenue}
         />
         <KpiCard
-          title="Rev / Delivered Sale"
+          title="Revenue / Revenue-Matched Sale"
           value={Number(summary.avg_revenue_per_billable_sale || 0).toFixed(2)}
           prefix={currencyPrefix}
-          subtitle="Average ticket yield"
+          subtitle="Recorded revenue / sale flag rows with recorded revenue"
         />
         <KpiCard
-          title="Revenue per Lead"
+          title="Recorded Revenue per Fetched Lead"
           value={Number(summary.avg_revenue_per_lead || 0).toFixed(2)}
           prefix={currencyPrefix}
-          subtitle="Full funnel yield"
+          subtitle="Recorded revenue / distinct lead IDs"
         />
       </div>
 
-      {/* Revenue Leakage Alert Banner */}
+      {/* Missing Revenue Matches Alert Banner */}
       {Number(summary.unbilled_sales || 0) > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
           <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
           <div className="text-xs text-amber-900 leading-relaxed">
             <span className="font-semibold text-amber-950">Commercial Quality Audit Notice: </span>
-            A total of <span className="font-bold">{Number(summary.unbilled_sales).toLocaleString()} sale events</span> generated {currencyPrefix}0 revenue due to non-billable vendor dispositions (pending QA, payment declinations, or unverified leads). Platform models strictly separate nominal sale events from revenue-generating billable sales.
+            <span className="font-bold">{Number(summary.unbilled_sales).toLocaleString()} transaction rows with sale flags</span> have no positive matched recorded revenue. Missing reporting, timing or non-billable outcomes may explain this; the amount is not a measured financial loss.
+
           </div>
         </div>
       )}
@@ -189,9 +190,9 @@ export default function Outcomes() {
           <div className="enterprise-card p-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-4 border-b border-border-subtle">
               <div>
-                <h3 className="font-display text-sm sm:text-base font-semibold text-text-main tracking-tight">Vendor Sales Realization & Leakage Comparison</h3>
+                <h3 className="font-display text-sm sm:text-base font-semibold text-text-main tracking-tight">Vendor Sale Flags by Revenue Match</h3>
                 <p className="text-xs text-text-sec mt-0.5">
-                  Visualizing billable revenue sales (green) versus unbilled sales leakage (amber) by partner.
+                  Transaction sale flags with positive matched revenue versus sale flags without positive matched revenue, by vendor.
                 </p>
               </div>
               <div className="text-[11px] font-mono text-text-mute bg-surface-sec px-2.5 py-1 rounded-md border border-border-subtle">
@@ -212,8 +213,8 @@ export default function Outcomes() {
                     formatter={(val: number, name: string) => [formatTableNumber(val), name]}
                   />
                   <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                  <Bar dataKey="billable" name="Billable Sales (Revenue > 0)" fill="#059669" stackId="a" radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="unbilled" name="Unbilled Sales Leakage (R0)" fill="#d97706" stackId="a" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="billable" name="Sale Flags with Recorded Revenue" fill="#059669" stackId="a" radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="unbilled" name="Sale Flags without Matched Missing Revenue Matches (R0)" fill="#d97706" stackId="a" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -240,11 +241,11 @@ export default function Outcomes() {
                     <th className="py-3 px-4">Vendor</th>
                     <th className="py-3 px-4">Status Family</th>
                     <th className="py-3 px-4 text-right">Transactions</th>
-                    <th className="py-3 px-4 text-right">Sale Events</th>
-                    <th className="py-3 px-4 text-right">Billable Sales</th>
-                    <th className="py-3 px-4 text-right">Unbilled Sales</th>
-                    <th className="py-3 px-4 text-right">Billable %</th>
-                    <th className="py-3 px-4 text-right">Total Revenue</th>
+                    <th className="py-3 px-4 text-right">Sale Flag Rows</th>
+                    <th className="py-3 px-4 text-right">Sale Flags with Recorded Revenue</th>
+                    <th className="py-3 px-4 text-right">Sales without Matched Revenue</th>
+                    <th className="py-3 px-4 text-right">Revenue-Matched / Sale Flag Rows (%)</th>
+                    <th className="py-3 px-4 text-right">Recorded Revenue</th>
                     <th className="py-3 px-4 text-right">Rev / Transaction</th>
                   </tr>
                 </thead>
@@ -289,7 +290,7 @@ export default function Outcomes() {
           <div className="h-[520px]">
             <FunnelWaterfall
               title="Full Commercial Conversion Funnel"
-              subtitle="End-to-end progression and drop-off analysis from capture through billable realization."
+              subtitle="Distinct lead IDs at each recorded stage. Sales with revenue are not necessarily delivered or contractually billable."
               steps={commercialFunnelSteps}
             />
           </div>
@@ -300,8 +301,8 @@ export default function Outcomes() {
               { label: '2. Delivered', val: funnel.step_2_delivered_leads, color: 'bg-blue-50 text-blue-800' },
               { label: '3. Called', val: funnel.step_3_called_leads, color: 'bg-indigo-50 text-indigo-800' },
               { label: '4. RPC', val: funnel.step_4_rpc_leads, color: 'bg-purple-50 text-purple-800' },
-              { label: '5. Sale Event', val: funnel.step_5_sale_leads, color: 'bg-amber-50 text-amber-800' },
-              { label: '6. Billable Sale', val: funnel.step_6_billable_sale_leads, color: 'bg-emerald-50 text-emerald-800' },
+              { label: '5. Leads with Sales', val: funnel.step_5_sale_leads, color: 'bg-amber-50 text-amber-800' },
+              { label: '6. Leads with Sales and Recorded Revenue', val: funnel.step_6_billable_sale_leads, color: 'bg-emerald-50 text-emerald-800' },
               { label: '7. Activated', val: funnel.step_7_activated_leads, color: 'bg-teal-50 text-teal-800' }
             ].map((step, idx) => {
               const base = Number(funnel.step_1_captured_leads || 1);

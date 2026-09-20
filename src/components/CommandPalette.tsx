@@ -1,3 +1,4 @@
+import { PAGE_TITLES } from '../../contracts/naming';
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -49,9 +50,10 @@ export default function CommandPalette({ isOpen, onClose, onOpenFilters }: Comma
 
   const commands: CommandItem[] = [
     // Pages
+    { id: 'page-reports', title: PAGE_TITLES['/reports'], subtitle: 'Versioned metrics, fixed data releases and supporting records', category: 'Pages', icon: ShieldCheck, action: () => { navigate('/reports'); onClose(); }, keywords: ['evidence','report','verified','snapshot'] },
     {
       id: 'page-overview',
-      title: 'Executive Overview',
+      title: PAGE_TITLES['/overview'],
       subtitle: 'High-level KPI scorecard, lead-to-revenue trends & source performance',
       category: 'Pages',
       icon: LayoutDashboard,
@@ -60,8 +62,8 @@ export default function CommandPalette({ isOpen, onClose, onOpenFilters }: Comma
     },
     {
       id: 'page-insights',
-      title: 'Automated Insights',
-      subtitle: 'AI-assisted deterministic variance explanations and alerts',
+      title: PAGE_TITLES['/insights'],
+      subtitle: 'Observed changes between equal-length reporting periods',
       category: 'Pages',
       icon: Sparkles,
       action: () => { navigate('/insights'); onClose(); },
@@ -69,7 +71,7 @@ export default function CommandPalette({ isOpen, onClose, onOpenFilters }: Comma
     },
     {
       id: 'page-explore',
-      title: 'Data Explorer',
+      title: PAGE_TITLES['/explore'],
       subtitle: 'Multi-dimensional pivot, bar, line, area & donut charting workspace',
       category: 'Pages',
       icon: Compass,
@@ -78,7 +80,7 @@ export default function CommandPalette({ isOpen, onClose, onOpenFilters }: Comma
     },
     {
       id: 'page-routing',
-      title: 'Routing & Handoffs',
+      title: PAGE_TITLES['/routing'],
       subtitle: 'Routing depth, call centre allocation & transfer efficiency',
       category: 'Pages',
       icon: GitBranch,
@@ -87,7 +89,7 @@ export default function CommandPalette({ isOpen, onClose, onOpenFilters }: Comma
     },
     {
       id: 'page-call-performance',
-      title: 'Call Performance',
+      title: PAGE_TITLES['/call-performance'],
       subtitle: 'Dial attempts, contactability decay, RPC curves & dispositions',
       category: 'Pages',
       icon: Phone,
@@ -96,8 +98,8 @@ export default function CommandPalette({ isOpen, onClose, onOpenFilters }: Comma
     },
     {
       id: 'page-speed-to-lead',
-      title: 'Speed to Lead',
-      subtitle: 'First contact latency buckets and conversion decay curves',
+      title: PAGE_TITLES['/speed-to-lead'],
+      subtitle: 'Elapsed capture-to-delivery and delivery-to-first-dial timing',
       category: 'Pages',
       icon: Phone,
       action: () => { navigate('/speed-to-lead'); onClose(); },
@@ -105,7 +107,7 @@ export default function CommandPalette({ isOpen, onClose, onOpenFilters }: Comma
     },
     {
       id: 'page-acquisition',
-      title: 'Acquisition & Media',
+      title: PAGE_TITLES['/acquisition'],
       subtitle: 'Traffic mediums, campaign mix, CPA & media economics',
       category: 'Pages',
       icon: Megaphone,
@@ -114,8 +116,8 @@ export default function CommandPalette({ isOpen, onClose, onOpenFilters }: Comma
     },
     {
       id: 'page-outcomes',
-      title: 'Outcomes & Revenue',
-      subtitle: 'Sales realization, revenue leakage, clawbacks & billing yields',
+      title: PAGE_TITLES['/outcomes'],
+      subtitle: 'Recorded sales, activations and revenue; not verified billing or cash',
       category: 'Pages',
       icon: Banknote,
       action: () => { navigate('/outcomes'); onClose(); },
@@ -123,7 +125,7 @@ export default function CommandPalette({ isOpen, onClose, onOpenFilters }: Comma
     },
     {
       id: 'page-sources',
-      title: 'Sources & Mix',
+      title: PAGE_TITLES['/sources'],
       subtitle: 'Channel volume, conversion efficiency & vendor attribution mix',
       category: 'Pages',
       icon: Share2,
@@ -132,7 +134,7 @@ export default function CommandPalette({ isOpen, onClose, onOpenFilters }: Comma
     },
     {
       id: 'page-lead-perf',
-      title: 'Lead Performance & Funnel',
+      title: PAGE_TITLES['/lead-performance'],
       subtitle: 'End-to-end conversion steps from submission to activation',
       category: 'Pages',
       icon: Activity,
@@ -141,7 +143,7 @@ export default function CommandPalette({ isOpen, onClose, onOpenFilters }: Comma
     },
     {
       id: 'page-quality',
-      title: 'Lead Quality & Vetting',
+      title: PAGE_TITLES['/quality'],
       subtitle: 'Credit scores, validation rules, vetting bands & qualification',
       category: 'Pages',
       icon: CheckCircle2,
@@ -150,7 +152,7 @@ export default function CommandPalette({ isOpen, onClose, onOpenFilters }: Comma
     },
     {
       id: 'page-reentry',
-      title: 'Consumer Re-entry',
+      title: PAGE_TITLES['/consumers'],
       subtitle: 'Duplicate detection, repeat submissions & re-engagement cycles',
       category: 'Pages',
       icon: Repeat,
@@ -159,7 +161,7 @@ export default function CommandPalette({ isOpen, onClose, onOpenFilters }: Comma
     },
     {
       id: 'page-revetting',
-      title: 'Re-vetting Analysis',
+      title: PAGE_TITLES['/revetting'],
       subtitle: 'Secondary underwriting adjustments, score drift & uplift',
       category: 'Pages',
       icon: Award,
@@ -168,7 +170,7 @@ export default function CommandPalette({ isOpen, onClose, onOpenFilters }: Comma
     },
     {
       id: 'page-cohorts',
-      title: 'Cohorts Analysis',
+      title: PAGE_TITLES['/cohorts'],
       subtitle: 'Longitudinal maturation curves and retention tracking',
       category: 'Pages',
       icon: Activity,
@@ -177,7 +179,7 @@ export default function CommandPalette({ isOpen, onClose, onOpenFilters }: Comma
     },
     {
       id: 'page-explorer',
-      title: 'Lead Records Explorer',
+      title: PAGE_TITLES['/explorer'],
       subtitle: 'Row-level record lookup, field verification & audit inspector',
       category: 'Pages',
       icon: Search,
@@ -186,7 +188,7 @@ export default function CommandPalette({ isOpen, onClose, onOpenFilters }: Comma
     },
     {
       id: 'page-data-trust',
-      title: 'Data Trust Matrix',
+      title: PAGE_TITLES['/data-trust'],
       subtitle: 'Discrepancy audit, field completeness and reconciliation scores',
       category: 'Pages',
       icon: ShieldCheck,
@@ -195,7 +197,7 @@ export default function CommandPalette({ isOpen, onClose, onOpenFilters }: Comma
     },
     {
       id: 'page-data-quality',
-      title: 'Data Quality & Freshness',
+      title: PAGE_TITLES['/data-quality'],
       subtitle: 'Pipeline sync health, SLA timeliness and schema compliance',
       category: 'Pages',
       icon: ShieldAlert,
@@ -204,7 +206,7 @@ export default function CommandPalette({ isOpen, onClose, onOpenFilters }: Comma
     },
     {
       id: 'page-admin',
-      title: 'Admin & Configuration',
+      title: PAGE_TITLES['/admin'],
       subtitle: 'System parameters, currency format and tenant configuration',
       category: 'Pages',
       icon: Settings,

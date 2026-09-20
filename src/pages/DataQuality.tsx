@@ -83,7 +83,7 @@ export default function DataQuality() {
             <Clock className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <div className="text-xs font-semibold text-text-sec uppercase tracking-wider mb-0.5">Latest Sale Realization</div>
+            <div className="text-xs font-semibold text-text-sec uppercase tracking-wider mb-0.5">Latest Capture among Leads with Sales Realization</div>
             <div className="text-base font-bold text-text-main font-mono">{freshness?.latestSale || 'Synchronized'}</div>
           </div>
         </div>

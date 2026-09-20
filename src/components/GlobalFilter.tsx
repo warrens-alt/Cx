@@ -384,7 +384,7 @@ export default function GlobalFilter({ onOpenMobileMenu, onOpenCommandPalette }:
               <SlidersHorizontal className="w-4 h-4 text-teal" />
               Universal Dimensional Filters
             </h2>
-            <p className="text-xs text-text-sec mt-0.5">Applied deterministically across all BigQuery analytical queries</p>
+            <p className="text-xs text-text-sec mt-0.5">Supported filters depend on the report; unsupported combinations are rejected.</p>
           </div>
           <button 
             onClick={() => setDrawerOpen(false)} 
@@ -437,7 +437,7 @@ export default function GlobalFilter({ onOpenMobileMenu, onOpenCommandPalette }:
                 />
               </div>
             </div>
-            <p className="text-[11px] text-teal-800/80">Applied globally across all metrics, views, and tabs.</p>
+            <p className="text-[11px] text-teal-800/80">Selects capture cohorts in legacy reports. Evidence Reports use their own explicit date contract.</p>
           </div>
 
           {/* Acquisition Block */}
@@ -463,7 +463,7 @@ export default function GlobalFilter({ onOpenMobileMenu, onOpenCommandPalette }:
             </div>
             
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-text-sec">Partner Vendor</label>
+              <label className="text-xs font-semibold text-text-sec">Vendor</label>
               <select className="w-full border border-border-subtle rounded-md px-3 py-2 text-xs font-medium bg-surface text-text-main focus:border-teal outline-none" value={vendor} onChange={(e) => setVendor(e.target.value)}>
                 <option value="">All Vendors</option>
                 {options.vendors?.map((v: any) => (
@@ -490,7 +490,7 @@ export default function GlobalFilter({ onOpenMobileMenu, onOpenCommandPalette }:
             </div>
             
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-text-sec">Vetting Score Tier</label>
+              <label className="text-xs font-semibold text-text-sec">Vetting Classification</label>
               <select className="w-full border border-border-subtle rounded-md px-3 py-2 text-xs font-medium bg-surface text-text-main focus:border-teal outline-none" value={getFilterValue('vetting')} onChange={(e) => handleAdvancedFilter('vetting', e.target.value)}>
                 <option value="">All Scores</option>
                 {options.vettings?.map((v: string) => <option key={v} value={v}>{v}</option>)}
@@ -505,28 +505,28 @@ export default function GlobalFilter({ onOpenMobileMenu, onOpenCommandPalette }:
             </h3>
             
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-text-sec">Right Party Contact (RPC)</label>
+              <label className="text-xs font-semibold text-text-sec">Right-Party Contact (RPC)</label>
               <select className="w-full border border-border-subtle rounded-md px-3 py-2 text-xs font-medium bg-surface text-text-main focus:border-teal outline-none" value={getBooleanFilterValue('rpc')} onChange={(e) => handleBooleanFilter('rpc', e.target.value)}>
                 <option value="">All Leads</option>
                 <option value="true">RPC Achieved (Yes)</option>
-                <option value="false">No Contact (No)</option>
+                <option value="false">Recorded No RPC Flag</option>
               </select>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-text-sec">Commercial Sale Realized</label>
+              <label className="text-xs font-semibold text-text-sec">Sale Recorded</label>
               <select className="w-full border border-border-subtle rounded-md px-3 py-2 text-xs font-medium bg-surface text-text-main focus:border-teal outline-none" value={getBooleanFilterValue('sale')} onChange={(e) => handleBooleanFilter('sale', e.target.value)}>
                 <option value="">All Leads</option>
-                <option value="true">Sale Completed (Yes)</option>
-                <option value="false">Unconverted (No)</option>
+                <option value="true">Recorded Sale Flag (Yes)</option>
+                <option value="false">Recorded No Sale Flag</option>
               </select>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-text-sec">Activation Confirmed</label>
+              <label className="text-xs font-semibold text-text-sec">Activation Recorded</label>
               <select className="w-full border border-border-subtle rounded-md px-3 py-2 text-xs font-medium bg-surface text-text-main focus:border-teal outline-none" value={getBooleanFilterValue('activated')} onChange={(e) => handleBooleanFilter('activated', e.target.value)}>
                 <option value="">All Leads</option>
-                <option value="true">Policy Activated (Yes)</option>
+                <option value="true">Recorded Activation Flag (Yes)</option>
                 <option value="false">Not Activated (No)</option>
               </select>
             </div>

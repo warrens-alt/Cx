@@ -45,26 +45,26 @@ export default function QualityVetting() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
             <KpiCard 
-              title="Vetting Pass Rate" 
+              title="Recorded Validation Pass Rate" 
               value={qualityData.passRate || 0} 
               suffix="%" 
               subtitle={`${(summary.passed || 0).toLocaleString()} valid leads`}
             />
             <KpiCard 
-              title="Duplicate / Invalid Rate" 
+              title="Recorded Validation Failure Rate" 
               value={summary.leads ? Number(((summary.failed / summary.leads) * 100).toFixed(1)) : 0} 
               suffix="%" 
-              subtitle={`${(summary.failed || 0).toLocaleString()} suppressed records`}
+              subtitle={`${(summary.failed || 0).toLocaleString()} failed-validation records`}
               isPositiveGood={false}
             />
             <KpiCard 
-              title="Delivered Conversion" 
+              title="Fetched-to-Delivered Lead Rate" 
               value={summary.deliveryRate || 0} 
               suffix="%" 
               subtitle={`${(summary.delivered || 0).toLocaleString()} passed to vendor`}
             />
             <KpiCard 
-              title="Quality-Adjusted Rev / Lead" 
+              title="Recorded Revenue per Fetched Lead" 
               value={summary.revPerLead || 0} 
               prefix={currencyPrefix} 
               subtitle={`${currencyPrefix}${(summary.revenue || 0).toLocaleString()} total revenue`}
@@ -76,8 +76,8 @@ export default function QualityVetting() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="min-h-[380px] flex flex-col">
             <DistributionBar 
-              title="Grade Distribution" 
-              subtitle="Volume of leads by assigned grade tier."
+              title="Validation Flag Distribution" 
+              subtitle="Pass and fail counts from the recorded validity flag; not a grade distribution."
               data={qualityData.grades}
               bucketKey="name"
               valueKey="value"
@@ -86,8 +86,8 @@ export default function QualityVetting() {
           </div>
           <div className="min-h-[380px] flex flex-col">
             <DistributionBar 
-              title="Vetting Outcomes" 
-              subtitle="Volume of leads by validation & duplicate outcome."
+              title="Recorded Validation Outcomes" 
+              subtitle="Recorded validity flags; duplicate causes are not classified."
               data={qualityData.vetting}
               bucketKey="name"
               valueKey="value"
@@ -115,13 +115,13 @@ export default function QualityVetting() {
                     <th className="px-5 py-3">Quality Grade</th>
                     <th className="px-4 py-3 text-right">Leads</th>
                     <th className="px-4 py-3 text-right">Delivered</th>
-                    <th className="px-4 py-3 text-right">Dialed</th>
+                    <th className="px-4 py-3 text-right">Dialled</th>
                     <th className="px-4 py-3 text-right">RPC</th>
                     <th className="px-4 py-3 text-right">Sales</th>
-                    <th className="px-4 py-3 text-right">Billable</th>
+                    <th className="px-4 py-3 text-right">Sales with Recorded Revenue</th>
                     <th className="px-4 py-3 text-right">Activated</th>
-                    <th className="px-4 py-3 text-right">Total Revenue</th>
-                    <th className="px-4 py-3 text-right">Rev / Lead</th>
+                    <th className="px-4 py-3 text-right">Recorded Revenue</th>
+                    <th className="px-4 py-3 text-right">Recorded Revenue / Lead</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-subtle font-mono text-xs">

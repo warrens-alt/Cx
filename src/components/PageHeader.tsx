@@ -1,3 +1,5 @@
+import { useLocation } from 'react-router-dom';
+import { PAGE_TITLES } from '../../contracts/naming';
 import React from 'react';
 
 interface PageHeaderProps {
@@ -9,6 +11,8 @@ interface PageHeaderProps {
 }
 
 export default function PageHeader({ title, description, category, badge, children }: PageHeaderProps) {
+  const location = useLocation();
+  const pageTitle = PAGE_TITLES[location.pathname] || title;
   return (
     <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6 sm:mb-7">
       <div className="space-y-1.5">
@@ -26,7 +30,7 @@ export default function PageHeader({ title, description, category, badge, childr
             )}
           </div>
         )}
-        <h1 className="text-page-title">{title}</h1>
+        <h1 className="text-page-title">{pageTitle}</h1>
         {description && <p className="text-sm text-text-sec leading-relaxed max-w-3xl pt-0.5">{description}</p>}
       </div>
       {children && (

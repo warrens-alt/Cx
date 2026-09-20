@@ -1,3 +1,4 @@
+import { exportColumnDefinitions } from '../../contracts/exportLabels';
 import { getBigQueryClient } from './client';
 import { getClientConfig } from './config';
 import { getBaseSemanticLayer } from './views';
@@ -27,10 +28,10 @@ export async function exportData(input: QueryScope & { grain: string; format?: s
       : `${base} SELECT ${columns.join(', ')} FROM vw_leads ${sql} ORDER BY capture_timestamp, lead_id LIMIT @exportLimit`;
     const [result] = await getBigQueryClient(client.bigQueryProject).query({ query, params: { ...queryParams, exportLimit: limit + 1 } });
     const metadata = { modelVersion: MODEL_VERSION, clientId: scope.clientId, startDate: scope.startDate ?? null, endDate: scope.endDate ?? null,
-      filters: scope.filters, grain: input.grain, rowCount: Math.min(result.length, limit), truncated: result.length > limit,
+      filters: scope.filters, ...exportColumnDefinitions(columns, input.grain), grain: input.grain, rowCount: Math.min(result.length, limit), truncated: result.length > limit,
       attribution: 'selected_vendor_transactions', dateBasis: 'lead_capture_cohort', generatedAt: new Date().toISOString(), validationStatus: 'NOT_VERIFIED' };
     const audit = { report_start: metadata.startDate, report_end: metadata.endDate, report_filters: JSON.stringify(metadata.filters),
-      report_model: MODEL_VERSION, report_truncated: metadata.truncated, report_validation: metadata.validationStatus };
+      report_model: MODEL_VERSION, report_naming_version: metadata.namingVersion, report_record_unit: metadata.recordUnit, report_truncated: metadata.truncated, report_validation: metadata.validationStatus };
     const rows = result.slice(0, limit).map(row => ({ ...row, ...audit }));
     return { rows, metadata, csv: toCsv(rows, [...columns, ...Object.keys(audit)]) };
   });

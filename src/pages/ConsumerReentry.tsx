@@ -62,32 +62,32 @@ export default function ConsumerReentry() {
           subtitle={`${Number(overview.repeat_consumer_share_pct || 0).toFixed(1)}% re-entry rate`}
         />
         <KpiCard
-          title="1st Entry Billable Rate"
+          title="Revenue-Matched Sale Share (Single-Lead Consumers)"
           value={`${Number(overview.single_billable_sale_rate_pct || 0).toFixed(1)}%`}
-          subtitle="Single-lead consumers"
+          subtitle="Consumers with a revenue-matched sale / single-lead consumers"
         />
         <KpiCard
-          title="Repeat Billable Rate"
+          title="Revenue-Matched Sale Share (Repeat Consumers)"
           value={`${Number(overview.repeat_billable_sale_rate_pct || 0).toFixed(1)}%`}
-          subtitle="Recycled consumers"
+          subtitle="Consumers with a revenue-matched sale / repeat consumers"
         />
         <KpiCard
-          title="Single Consumer Rev"
+          title="Recorded Revenue (Single-Lead Consumers)"
           value={Math.round(overview.single_consumer_revenue || 0)}
           prefix={currencyPrefix}
           subtitle={`${currencyPrefix}${Number(overview.rev_per_single_consumer || 0).toFixed(2)} / consumer`}
         />
         <KpiCard
-          title="Repeat Consumer Rev"
+          title="Recorded Revenue (Repeat Consumers)"
           value={Math.round(overview.repeat_consumer_revenue || 0)}
           prefix={currencyPrefix}
           subtitle={`${currencyPrefix}${Number(overview.rev_per_repeat_consumer || 0).toFixed(2)} / consumer`}
         />
         <KpiCard
-          title="Total Consumer Rev"
+          title="Recorded Revenue (All Consumers)"
           value={Math.round(overview.total_revenue || 0)}
           prefix={currencyPrefix}
-          subtitle="Deduplicated revenue"
+          subtitle="Revenue summed by recorded consumer ID; not verified lifetime value"
         />
       </div>
 
@@ -153,11 +153,11 @@ export default function ConsumerReentry() {
                   <th className="py-3 px-4 text-right">Consumer Share</th>
                   <th className="py-3 px-4 text-right">Total Leads</th>
                   <th className="py-3 px-4 text-right">Consumers w/ Sale</th>
-                  <th className="py-3 px-4 text-right">Sale Event %</th>
-                  <th className="py-3 px-4 text-right">Billable Sale %</th>
-                  <th className="py-3 px-4 text-right">Total Revenue</th>
-                  <th className="py-3 px-4 text-right">Rev / Consumer</th>
-                  <th className="py-3 px-4 text-right">Rev / Lead</th>
+                  <th className="py-3 px-4 text-right">Consumers with Sales / Consumers (%)</th>
+                  <th className="py-3 px-4 text-right">Revenue-Matched Consumers with Sales / Consumers (%)</th>
+                  <th className="py-3 px-4 text-right">Recorded Revenue</th>
+                  <th className="py-3 px-4 text-right">Recorded Revenue / Consumer</th>
+                  <th className="py-3 px-4 text-right">Recorded Revenue / Lead</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-mono text-xs">
@@ -204,13 +204,13 @@ export default function ConsumerReentry() {
                 <tr>
                   <th className="py-3 px-4">Sequential Stage</th>
                   <th className="py-3 px-4 text-right">Lead Count</th>
-                  <th className="py-3 px-4 text-right">Delivered %</th>
-                  <th className="py-3 px-4 text-right">Call Rate %</th>
-                  <th className="py-3 px-4 text-right">RPC Rate %</th>
-                  <th className="py-3 px-4 text-right">Sale Event %</th>
-                  <th className="py-3 px-4 text-right">Billable Sale %</th>
-                  <th className="py-3 px-4 text-right">Total Revenue</th>
-                  <th className="py-3 px-4 text-right">Rev / Lead</th>
+                  <th className="py-3 px-4 text-right">Delivered / Fetched Leads (%)</th>
+                  <th className="py-3 px-4 text-right">Dialled / Fetched Leads (%)</th>
+                  <th className="py-3 px-4 text-right">RPC / Fetched Leads (%)</th>
+                  <th className="py-3 px-4 text-right">Sales / Fetched Leads (%)</th>
+                  <th className="py-3 px-4 text-right">Revenue-Matched Sales / Fetched Leads (%)</th>
+                  <th className="py-3 px-4 text-right">Recorded Revenue</th>
+                  <th className="py-3 px-4 text-right">Recorded Revenue / Lead</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-mono text-xs">
@@ -245,7 +245,7 @@ export default function ConsumerReentry() {
             <div>
               <h3 className="text-base font-semibold text-slate-900">Highest-Value Multi-Lead Consumers</h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Top repeat consumers ranked by total realized revenue across all lifetime entries.
+                Top repeat consumers ranked by recorded revenue across retained entries.
               </p>
             </div>
           </div>
@@ -255,14 +255,14 @@ export default function ConsumerReentry() {
               <thead className="bg-slate-50/80 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
                 <tr>
                   <th className="py-3 px-4">Consumer ID</th>
-                  <th className="py-3 px-4 text-center">Lifetime Leads</th>
+                  <th className="py-3 px-4 text-center">Recorded Leads</th>
                   <th className="py-3 px-4 text-center">Unique Sources</th>
                   <th className="py-3 px-4 text-center">Unique Vendors</th>
                   <th className="py-3 px-4 text-center">Transactions</th>
                   <th className="py-3 px-4">First Lead Date</th>
                   <th className="py-3 px-4">Latest Lead Date</th>
-                  <th className="py-3 px-4 text-center">Billable Sale</th>
-                  <th className="py-3 px-4 text-right">Total Revenue</th>
+                  <th className="py-3 px-4 text-center">Sale Flag with Recorded Revenue</th>
+                  <th className="py-3 px-4 text-right">Recorded Revenue</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-mono text-xs">

@@ -72,9 +72,9 @@ export default function RoutingIntelligence() {
           subtitle={`${overview.missing_handoff_leads || 0} missing handoffs`}
         />
         <KpiCard
-          title="Billable Sale Rate"
+          title="Revenue-Matched Sale Share"
           value={`${Number(overview.routed_billable_sale_rate_pct || 0).toFixed(1)}%`}
-          subtitle={`${overview.routed_billable_sale_leads || 0} paying sales`}
+          subtitle={`${overview.routed_billable_sale_leads || 0} leads with sales and recorded revenue`}
         />
         <KpiCard
           title="Routed Revenue"
@@ -155,10 +155,10 @@ export default function RoutingIntelligence() {
                     <th className="py-3 px-4 text-right">Handoff Rate</th>
                     <th className="py-3 px-4 text-right">Delivery Rate</th>
                     <th className="py-3 px-4 text-right">Call Rate</th>
-                    <th className="py-3 px-4 text-right">Sale Event %</th>
-                    <th className="py-3 px-4 text-right">Billable Sale %</th>
-                    <th className="py-3 px-4 text-right">Total Revenue</th>
-                    <th className="py-3 px-4 text-right">Rev / Lead</th>
+                    <th className="py-3 px-4 text-right">Sales / Fetched Leads (%)</th>
+                    <th className="py-3 px-4 text-right">Revenue-Matched Sales / Fetched Leads (%)</th>
+                    <th className="py-3 px-4 text-right">Recorded Revenue</th>
+                    <th className="py-3 px-4 text-right">Recorded Revenue / Lead</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-mono text-xs">
@@ -206,12 +206,12 @@ export default function RoutingIntelligence() {
                     <th className="py-3 px-4 text-center">Hops</th>
                     <th className="py-3 px-4 text-right">Unique Leads</th>
                     <th className="py-3 px-4 text-right">Share %</th>
-                    <th className="py-3 px-4 text-right">Delivered %</th>
+                    <th className="py-3 px-4 text-right">Delivered / Fetched Leads (%)</th>
                     <th className="py-3 px-4 text-right">Called %</th>
-                    <th className="py-3 px-4 text-right">Sale Event %</th>
-                    <th className="py-3 px-4 text-right">Billable Sale %</th>
-                    <th className="py-3 px-4 text-right">Total Revenue</th>
-                    <th className="py-3 px-4 text-right">Rev / Lead</th>
+                    <th className="py-3 px-4 text-right">Sales / Fetched Leads (%)</th>
+                    <th className="py-3 px-4 text-right">Revenue-Matched Sales / Fetched Leads (%)</th>
+                    <th className="py-3 px-4 text-right">Recorded Revenue</th>
+                    <th className="py-3 px-4 text-right">Recorded Revenue / Lead</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-mono text-xs">
@@ -287,9 +287,9 @@ export default function RoutingIntelligence() {
                   <th className="py-3 px-4 text-right">Handoff Leads</th>
                   <th className="py-3 px-4 text-right">Handoff Rate</th>
                   <th className="py-3 px-4 text-right">Delivered Rate</th>
-                  <th className="py-3 px-4 text-right">Billable Sale %</th>
-                  <th className="py-3 px-4 text-right">Total Revenue</th>
-                  <th className="py-3 px-4 text-right">Rev / Lead</th>
+                  <th className="py-3 px-4 text-right">Revenue-Matched Sales / Fetched Leads (%)</th>
+                  <th className="py-3 px-4 text-right">Recorded Revenue</th>
+                  <th className="py-3 px-4 text-right">Recorded Revenue / Lead</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-mono text-xs">
@@ -336,7 +336,7 @@ export default function RoutingIntelligence() {
               <AlertTriangle className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-slate-900">Partner Handoff Discrepancies & Leakage</h3>
+              <h3 className="text-base font-semibold text-slate-900">Routing Records without Matched Vendor Transactions</h3>
               <p className="text-xs text-slate-500">
                 Audit of records with an ROR partner routing timestamp where no corresponding HLC transaction was registered.
               </p>
@@ -346,9 +346,9 @@ export default function RoutingIntelligence() {
           {missingSample.length === 0 ? (
             <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-6 text-center text-emerald-800">
               <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-emerald-600" />
-              <p className="font-semibold text-sm">Perfect Handoff Integrity</p>
+              <p className="font-semibold text-sm">No Missing Matches Returned by This Check</p>
               <p className="text-xs text-emerald-700 mt-1">
-                All routed leads have successfully reconciled against HLC vendor transaction records.
+                No missing-match sample was returned. This does not establish independent reconciliation, successful delivery or complete source coverage.
               </p>
             </div>
           ) : (

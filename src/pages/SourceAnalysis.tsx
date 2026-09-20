@@ -206,13 +206,13 @@ export default function SourceAnalysis() {
                   <th className="px-5 py-3">Source</th>
                   <th className="px-4 py-3 text-right">Leads</th>
                   <th className="px-4 py-3 text-right">Delivered</th>
-                  <th className="px-4 py-3 text-right">Dialed</th>
+                  <th className="px-4 py-3 text-right">Dialled</th>
                   <th className="px-4 py-3 text-right">RPC</th>
                   <th className="px-4 py-3 text-right">Sales</th>
-                  <th className="px-4 py-3 text-right">Billable</th>
+                  <th className="px-4 py-3 text-right">Leads with Sales and Recorded Revenue</th>
                   <th className="px-4 py-3 text-right">Activated</th>
                   <th className="px-4 py-3 text-right">Revenue</th>
-                  <th className="px-4 py-3 text-right">Rev / Lead</th>
+                  <th className="px-4 py-3 text-right">Recorded Revenue / Lead</th>
                 </tr>
               )}
               {viewMode === 'rates' && (
@@ -221,11 +221,11 @@ export default function SourceAnalysis() {
                   <th className="px-4 py-3 text-right">Leads</th>
                   <th className="px-4 py-3 text-right">Delivery %</th>
                   <th className="px-4 py-3 text-right">Call Cov %</th>
-                  <th className="px-4 py-3 text-right">RPC Rate %</th>
+                  <th className="px-4 py-3 text-right">RPC / Dialled Leads (%)</th>
                   <th className="px-4 py-3 text-right">Lead &rarr; Sale %</th>
-                  <th className="px-4 py-3 text-right">Billable %</th>
-                  <th className="px-4 py-3 text-right">Activation %</th>
-                  <th className="px-4 py-3 text-right">Rev / Lead</th>
+                  <th className="px-4 py-3 text-right">Revenue-Matched Sales / Sales (%)</th>
+                  <th className="px-4 py-3 text-right">Activations / Revenue-Matched Sales (%)</th>
+                  <th className="px-4 py-3 text-right">Recorded Revenue / Lead</th>
                 </tr>
               )}
               {viewMode === 'volume' && (
@@ -233,12 +233,12 @@ export default function SourceAnalysis() {
                   <th className="px-5 py-3">Source</th>
                   <th className="px-4 py-3 text-right">Leads</th>
                   <th className="px-4 py-3 text-right">Delivered</th>
-                  <th className="px-4 py-3 text-right">Dialed</th>
+                  <th className="px-4 py-3 text-right">Dialled</th>
                   <th className="px-4 py-3 text-right">RPCs</th>
                   <th className="px-4 py-3 text-right">Sales</th>
-                  <th className="px-4 py-3 text-right">Billable Sales</th>
+                  <th className="px-4 py-3 text-right">Leads with Sales and Recorded Revenue</th>
                   <th className="px-4 py-3 text-right">Activations</th>
-                  <th className="px-4 py-3 text-right">Total Revenue</th>
+                  <th className="px-4 py-3 text-right">Recorded Revenue</th>
                 </tr>
               )}
             </thead>
@@ -255,7 +255,7 @@ export default function SourceAnalysis() {
                       </td>
                       <td className="px-4 py-3 text-right text-text-sec">
                         {formatTableNumber(row.called || 0)}
-                        <span className="text-[11px] text-text-mute block font-sans">{row.callCoverage || row.callRate || 0}%</span>
+                        <span className="text-[11px] text-text-mute block font-sans">{row.callCoverage ?? 0}%</span>
                       </td>
                       <td className="px-4 py-3 text-right text-text-sec">
                         {formatTableNumber(row.rpcs || 0)}
@@ -284,9 +284,9 @@ export default function SourceAnalysis() {
                       <td className="font-sans font-medium text-text-main px-5 py-3">{row.source}</td>
                       <td className="px-4 py-3 text-right font-medium text-text-main">{formatTableNumber(row.leads)}</td>
                       <td className="px-4 py-3 text-right text-text-sec">{row.delivery || 0}%</td>
-                      <td className="px-4 py-3 text-right text-text-sec">{row.callCoverage || row.callRate || 0}%</td>
+                      <td className="px-4 py-3 text-right text-text-sec">{row.callCoverage ?? 0}%</td>
                       <td className="px-4 py-3 text-right text-text-sec">{row.rpcRate || 0}%</td>
-                      <td className="px-4 py-3 text-right font-semibold text-teal">{row.leadToSaleRate || row.saleRate || 0}%</td>
+                      <td className="px-4 py-3 text-right font-semibold text-teal">{row.leadToSaleRate ?? 0}%</td>
                       <td className="px-4 py-3 text-right text-text-sec">{row.billableSaleRate || 0}%</td>
                       <td className="px-4 py-3 text-right text-emerald-600 font-semibold">{row.activationRate || 0}%</td>
                       <td className="px-4 py-3 text-right font-bold text-text-main">{currencyPrefix}{Number(row.revPerLead || 0).toFixed(2)}</td>

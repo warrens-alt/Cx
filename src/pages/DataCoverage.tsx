@@ -50,16 +50,16 @@ export default function DataCoverage() {
   return (
     <div className="w-full px-6 lg:px-8 py-6 lg:py-8 pb-24 max-w-[1920px] mx-auto fade-in space-y-6">
       <PageHeader 
-        title="Data & Parameter Coverage" 
+        title="Data & Parameter Mapping Coverage" 
         category="Semantic Schema Integrity"
-        description="Audit BigQuery field mappings, canonical parameter schemas, and multi-vendor telemetry coverage." 
+        description="Audit BigQuery field mappings, canonical parameter schemas, and vendor field presence and positive outcome flags." 
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5 mb-6 sm:mb-8">
         <KpiCard title="Parameters Mapped" value={paramData.summary.mapped + " / " + paramData.summary.totalRequired} />
-        <KpiCard title="Parameter Coverage" value={paramData.summary.coveragePercent} suffix="%" />
-        <KpiCard title="Tables Scanned" value={totalCount} />
-        <KpiCard title="Source Conflicts" value={paramData.summary.sourceConflicts} isPositiveGood={false} />
+        <KpiCard title="Parameter Mapping Coverage" value={paramData.summary.coveragePercent} suffix="%" />
+        <KpiCard title="Tables Listed" value={totalCount} />
+        <KpiCard title="Measured Source Conflicts" value={paramData.summary.sourceConflicts} isPositiveGood={false} />
       </div>
       <div className="enterprise-card overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200 bg-surface-sec">
@@ -150,14 +150,14 @@ export default function DataCoverage() {
                 <th>Vendor</th>
                 <th className="text-right">Transactions</th>
                 <th className="text-right">Status</th>
-                <th className="text-right">Delivery</th>
-                <th className="text-right">1st Call</th>
-                <th className="text-right">Last Call</th>
+                <th className="text-right">Attempted-Delivery Timestamp Present (%)</th>
+                <th className="text-right">First-Dial Timestamp Present (%)</th>
+                <th className="text-right">Last-Dial Timestamp Present (%)</th>
                 <th className="text-right">Disposition</th>
-                <th className="text-right">RPC</th>
-                <th className="text-right">Sale</th>
-                <th className="text-right">Activation</th>
-                <th className="text-right">Revenue</th>
+                <th className="text-right">Positive RPC Flag (%)</th>
+                <th className="text-right">Positive Sale Flag (%)</th>
+                <th className="text-right">Positive Activation Flag (%)</th>
+                <th className="text-right">Positive Recorded Revenue (%)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">

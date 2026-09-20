@@ -61,23 +61,23 @@ export default function Revetting() {
           subtitle="Secondary vetting pass"
         />
         <KpiCard
-          title="Original Billable Sale"
+          title="Revenue-Matched Sale Share (Original Leads)"
           value={`${Number(original.billable_sale_rate_pct || 0).toFixed(1)}%`}
           subtitle="Conversion rate"
         />
         <KpiCard
-          title="Re-vetted Billable Sale"
+          title="Revenue-Matched Sale Share (Re-vetted Leads)"
           value={`${Number(revetted.billable_sale_rate_pct || 0).toFixed(1)}%`}
           subtitle="Conversion rate"
         />
         <KpiCard
-          title="Original Rev / Lead"
+          title="Original Recorded Revenue / Lead"
           value={Number(original.rev_per_lead || 0).toFixed(2)}
           prefix={currencyPrefix}
           subtitle="Monetization per lead"
         />
         <KpiCard
-          title="Re-vetted Rev / Lead"
+          title="Re-vetted Recorded Revenue / Lead"
           value={Number(revetted.rev_per_lead || 0).toFixed(2)}
           prefix={currencyPrefix}
           subtitle="Monetization per lead"
@@ -102,13 +102,13 @@ export default function Revetting() {
                 <tr>
                   <th className="py-3 px-4">Cohort</th>
                   <th className="py-3 px-4 text-right">Unique Leads</th>
-                  <th className="py-3 px-4 text-right">Delivered %</th>
-                  <th className="py-3 px-4 text-right">Call Rate %</th>
-                  <th className="py-3 px-4 text-right">RPC Rate %</th>
-                  <th className="py-3 px-4 text-right">Sale Event %</th>
-                  <th className="py-3 px-4 text-right">Billable Sale %</th>
-                  <th className="py-3 px-4 text-right">Total Revenue</th>
-                  <th className="py-3 px-4 text-right">Rev / Lead</th>
+                  <th className="py-3 px-4 text-right">Delivered / Fetched Leads (%)</th>
+                  <th className="py-3 px-4 text-right">Dialled / Fetched Leads (%)</th>
+                  <th className="py-3 px-4 text-right">RPC / Fetched Leads (%)</th>
+                  <th className="py-3 px-4 text-right">Sales / Fetched Leads (%)</th>
+                  <th className="py-3 px-4 text-right">Revenue-Matched Sales / Fetched Leads (%)</th>
+                  <th className="py-3 px-4 text-right">Recorded Revenue</th>
+                  <th className="py-3 px-4 text-right">Recorded Revenue / Lead</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-mono text-xs">
@@ -152,10 +152,10 @@ export default function Revetting() {
                     <th className="py-3 px-4">Vetting Tier</th>
                     <th className="py-3 px-4 text-center">Re-vetted</th>
                     <th className="py-3 px-4 text-right">Unique Leads</th>
-                    <th className="py-3 px-4 text-right">Sale Event %</th>
-                    <th className="py-3 px-4 text-right">Billable Sale %</th>
-                    <th className="py-3 px-4 text-right">Total Revenue</th>
-                    <th className="py-3 px-4 text-right">Rev / Lead</th>
+                    <th className="py-3 px-4 text-right">Sales / Fetched Leads (%)</th>
+                    <th className="py-3 px-4 text-right">Revenue-Matched Sales / Fetched Leads (%)</th>
+                    <th className="py-3 px-4 text-right">Recorded Revenue</th>
+                    <th className="py-3 px-4 text-right">Recorded Revenue / Lead</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-mono text-xs">

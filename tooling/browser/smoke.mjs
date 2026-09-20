@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 const fixture=JSON.parse(fs.readFileSync('tests/fixtures/reporting-reference.json','utf8'));
 const server=spawn(process.execPath,['dist/server/server.mjs'],{env:{...process.env,NODE_ENV:'production',PORT:'3187',IAP_AUDIENCE:'',CX_REPORTING_DATASET:''},stdio:'pipe'});
-let browser;
+let browser, activePage;
 const logs=[];server.stderr.on('data',d=>logs.push(d.toString()));
 async function waitServer(){for(let i=0;i<100;i++){try{if((await fetch('http://127.0.0.1:3187/api/health')).ok)return;}catch{}await new Promise(r=>setTimeout(r,100));}throw new Error('Server did not start: '+logs.join(''));}
 const cutoff='2026-09-20T00:00:00.000Z';
@@ -13,34 +13,77 @@ let checks=0;
 try{
   await waitServer();browser=await chromium.launch({headless:true});
   for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
-    const page=await browser.newPage({viewport});let noRelease=false,slow=false;
+    const page=await browser.newPage({viewport});activePage=page;let noRelease=false,slow=false;
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     await page.route('**/api/**',async route=>{
       const url=new URL(route.request().url()),payload=route.request().postDataJSON();
       let data={};
       if(url.pathname==='/api/analytics/clients')data=[{id:'default_tenant',name:'Fixture tenant',currency:'ZAR',timezone:'UTC',capabilities:{}}];
       else if(url.pathname==='/api/reporting/catalogue')data={available:!noRelease,reason:noRelease?'No approved release has been published.':null,release:noRelease?null:{releaseId:'rfixture',cutoff,sourceBatchIds:['synthetic-batch'],sources:[],checks:[]}};
+      else if(url.pathname==='/api/analytics/calls')data={calledLeads:8,totalCalls:12,avgCalls:1.5,oneCallLeads:4,oneCallRate:50,repeatCallLeads:4,repeatCallRate:50,totalDurationHours:1.25,
+        chart:[{bucket:'1 Call',current:4,rpc:50,sale:25,activation:25,revPerLead:25,totalRevenue:100}],
+        hourly:[{label:'09:00',volume:8,rpcRate:50,saleRate:25,revenue:100}],dayOfWeek:[{day:'Monday',volume:8,rpcRate:50,saleRate:25,revenue:100}],
+        vendors:[{vendor:'Synthetic Vendor',totalLeads:8,calledLeads:10,avgCallsPerLead:1.2,oneCallRate:50,rpcRate:50,saleRate:20,revPerLead:10}],
+        dispositions:[{disposition:'Synthetic Sale',volume:2,share:100,rpcRate:100,saleRate:100,revenue:100}]};
+      else if(url.pathname==='/api/analytics/speed-to-lead')data={metrics:[{id:'capture_to_delivery',name:'Capture to Delivery',avg:'8m'},{id:'delivery_to_first_dial',name:'Delivery to First Call',avg:'20m'}],
+        buckets:['< 5m','5-15m','15-60m','> 1h'].map((bucket,i)=>({bucket,leads:4+i,rpcCount:2,rpc:50,saleCount:1,sale:25,billableCount:1,billableRate:100,actCount:1,activation:100,revenue:100,revPerLead:25}))};
+      else if(url.pathname==='/api/analytics/explore')data=[{dim1:'Synthetic Source',value:12.5,sampleSize:8,fullFunnel:{}}];
       else if(url.pathname==='/api/reporting/reports'){
         if(slow)await new Promise(r=>setTimeout(r,400));
         const req=payload.request,values=req.filters.source?.[0]==='Organic'?fixture.expected.organic:req.filters.vendor?.[0]==='Vendor A'?fixture.expected.vendorA:req.filters.vendor?.[0]==='Vendor B'?fixture.expected.vendorB:fixture.expected.all;
-        data={executionId:'fixture-'+JSON.stringify(req.filters),token:'test-only-token',request:req,releaseId:'rfixture',modelVersion:'cx.facts.2.0.0',metricVersion:'cx.metrics.2.0.0',releaseCutoff:cutoff,sourceBatchIds:['synthetic-batch'],generatedAt:cutoff,validation:[],sources:[],groups:[],
+        data={executionId:'fixture-'+JSON.stringify(req.filters),token:'test-only-token',request:req,releaseId:'rfixture',modelVersion:'cx.facts.2.0.0',metricVersion:'cx.metrics.2.0.1',releaseCutoff:cutoff,sourceBatchIds:['synthetic-batch'],generatedAt:cutoff,validation:[],sources:[],groups:[],
           totals:req.metrics.map(id=>({metricId:id,group:null,value:values[id],numerator:values[id],denominator:id==='call_coverage'?'3':null,unit:id.endsWith('_value')?'currency':id.endsWith('_rate')||id==='call_coverage'?'percent':'records',calculationStatus:'CHECKED',completeness:'COMPLETE',reason:values[id]===null?'No eligible denominator':null}))};
       }else if(url.pathname==='/api/reporting/evidence')data={executionId:'fixture-{}',metricId:payload.metricId,rows:fixture.calls,rowCount:fixture.calls.length,truncated:false};
       await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({success:true,data})});
     });
     await page.goto('http://127.0.0.1:3187/reports');await page.getByText('Available release: rfixture',{exact:true}).waitFor();
+    assert.equal(await page.getByRole('heading',{level:1}).textContent(),'Evidence Reports');checks++;
+    assert.equal(await page.title(),'ConversionX | Lead & Revenue Analytics');checks++;
     await page.getByLabel('From (UTC)',{exact:true}).fill('2026-08-01');await page.getByLabel('Through (UTC)',{exact:true}).fill('2026-08-31');
     await page.getByRole('button',{name:'Create snapshot-bound report'}).click();
+    assert.equal(await page.getByLabel('Call Attempts',{exact:true}).count(),1);checks++;
     const calls=page.getByTestId('metric-call_attempts').getByTestId('metric-value');await calls.waitFor();assert.equal(await calls.textContent(),'5');checks++;
+    assert.equal(await page.getByTestId('metric-call_attempts').getByRole('heading').textContent(),'Call Attempts');checks++;
+    assert.equal(await page.getByTestId('metric-collected_value').getByRole('heading').textContent(),'Collected Amount');checks++;
+    await page.getByTestId('metric-call_coverage').getByRole('button',{name:'Definition',exact:true}).click();
+    await page.getByLabel('Metric definition').getByText('Delivered Episodes with a Subsequent Call / Successful Delivery Episodes × 100',{exact:false}).waitFor();checks++;
     assert.equal(await page.getByTestId('metric-collected_value').getByTestId('metric-value').textContent(),'ZAR 0.29');checks++;
     await page.getByTestId('metric-call_attempts').getByRole('button',{name:'Inspect records'}).click();await page.getByText('5 records. Truncation: no. Preview shows up to 20 records.').waitFor();checks++;
+    assert.equal(await page.getByRole('heading',{name:'Evidence: Call Attempts',exact:true}).count(),1);checks++;
     await page.getByLabel('Source',{exact:true}).fill('Organic');assert.equal(await page.locator('[aria-label="Report results"]').count(),0);checks++;
     await page.getByRole('button',{name:'Create snapshot-bound report'}).click();await page.getByTestId('metric-call_coverage').waitFor();assert.equal(await page.getByTestId('metric-call_coverage').getByTestId('metric-value').textContent(),'Unavailable');checks++;
     slow=true;await page.getByLabel('Source',{exact:true}).fill('');await page.getByLabel('Vendor',{exact:true}).fill('Vendor B');await page.getByRole('button',{name:'Create snapshot-bound report'}).click();await page.getByLabel('Vendor',{exact:true}).fill('Vendor A');await page.waitForTimeout(500);assert.equal(await page.locator('[aria-label="Report results"]').count(),0);checks++;
     slow=false;await page.getByRole('button',{name:'Create snapshot-bound report'}).click();await calls.waitFor();assert.equal(await calls.textContent(),'4');checks++;
     fs.mkdirSync('verification',{recursive:true});await page.screenshot({path:`verification/evidence-${viewport.width}.png`,fullPage:true});
     noRelease=true;await page.reload();await page.getByRole('heading',{name:'No approved release available'}).waitFor();assert.equal(await page.locator('[aria-label="Report results"]').count(),0);checks++;
+    await page.goto('http://127.0.0.1:3187/explore');await page.getByLabel('Measure',{exact:true}).selectOption('sale_rate');
+    await page.getByLabel('Visualisation',{exact:true}).selectOption('table');await page.getByRole('cell',{name:'12.5%',exact:true}).waitFor();checks++;
+    assert.equal(await page.getByRole('heading',{level:1}).textContent(),'Data Explorer');checks++;
+    assert.equal(await page.getByText('Not additive',{exact:true}).count(),1);checks++;
+    const explorerTable=page.getByRole('table',{name:'Explorer results',exact:true});
+    const metricHeader=explorerTable.getByRole('columnheader',{name:'Sales / Dialled Leads (%)',exact:true});
+    await metricHeader.waitFor();assert.equal((await metricHeader.textContent()).trim(),'Sales / Dialled Leads (%)');checks++;
+    assert.equal(await page.getByText('1,250%',{exact:true}).count(),0);checks++;
+    await page.screenshot({path:`verification/naming-explorer-${viewport.width}.png`,fullPage:true});
+    await page.goto('http://127.0.0.1:3187/call-performance');
+    await page.getByRole('heading',{name:/^One-Call Lead Share$/i}).waitFor();checks++;
+    assert.equal(await page.getByRole('heading',{level:1}).textContent(),'Call Performance');checks++;
+    assert.equal(await page.getByText('One-Call Resolution',{exact:true}).count(),0);checks++;
+    await page.getByRole('button',{name:'First-Dial Timing',exact:true}).click();
+    await page.getByRole('columnheader',{name:/^First-Dial Weekday$/i}).waitFor();checks++;
+    await page.getByRole('button',{name:'Vendor & Disposition Records',exact:true}).click();
+    await page.getByRole('columnheader',{name:/^Dialled Transaction Rows$/i}).waitFor();checks++;
+    await page.getByLabel('Find Vendor',{exact:true}).fill('Synthetic Vendor');
+    assert.equal(await page.getByRole('cell',{name:'Synthetic Vendor',exact:true}).count(),1);checks++;
+    await page.screenshot({path:`verification/naming-calls-${viewport.width}.png`,fullPage:true});
+    await page.goto('http://127.0.0.1:3187/speed-to-lead');
+    await page.getByRole('heading',{name:/^Capture-to-Delivery Mean$/i}).waitFor();checks++;
+    assert.equal(await page.getByRole('heading',{level:1}).textContent(),'Delivery & First-Dial Timing');checks++;
+    await page.getByRole('columnheader',{name:/^Transaction Rows$/i}).waitFor();checks++;
+    await page.getByRole('rowheader',{name:/^0–5 Whole Minutes$/i}).waitFor();checks++;
+    assert.equal(await page.getByText('1,250%',{exact:true}).count(),0);checks++;
+    await page.screenshot({path:`verification/naming-timing-${viewport.width}.png`,fullPage:true});
     assert.deepEqual(errors,[]);checks++;await page.close();
   }
   fs.writeFileSync('verification/browser.json',JSON.stringify({checks,passed:checks,source:'synthetic API fixtures',liveWarehouseTested:false},null,2));console.log(`${checks} browser assertions passed on desktop and mobile using synthetic responses.`);
-}finally{if(browser)await browser.close();server.kill('SIGTERM');}
+}catch(error){if(activePage&&!activePage.isClosed()){fs.mkdirSync('verification',{recursive:true});await activePage.screenshot({path:'verification/browser-failure.png',fullPage:true});fs.writeFileSync('verification/browser-failure.html',await activePage.content());fs.writeFileSync('verification/browser-failure.json',JSON.stringify({url:activePage.url(),checks,message:String(error),stack:error.stack,headers:await activePage.locator('thead th').allTextContents(),accessibility:await activePage.locator('body').ariaSnapshot()},null,2));}throw error;}finally{if(browser)await browser.close();server.kill('SIGTERM');}

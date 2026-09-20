@@ -25,7 +25,7 @@ test('HTTP report scope, replay, permission recheck and precision',async()=>{
   const post=(path:string,body:unknown,headers={})=>fetch(`http://127.0.0.1:${port}/api/reporting/${path}`,{method:'POST',headers:{'Content-Type':'application/json',...headers},body:JSON.stringify(body)});
   const request={tenantId:'default_tenant',startDate:'2026-08-01',endDate:'2026-08-31',observationCutoff:cutoff,dateBasis:'capture_cohort',grouping:'none',currency:'ZAR',metrics:['fetched_leads'],filters:{}};
   try{
-    const response=await post('reports',{request});assert.equal(response.status,200);const first=(await response.json()).data;assert.equal(first.totals[0].value,'9007199254740993');
+    const response=await post('reports',{request});assert.equal(response.status,200);const first=(await response.json()).data;assert.equal(first.totals[0].value,'9007199254740993');assert.equal(first.metricDefinitions[0].label,'Fetched Leads');assert.equal(first.metricDefinitions[0].numeratorLabel,'Distinct Lead Submissions');assert.equal(first.metricDefinitions[0].id,'fetched_leads');
     const replay=await post('replay',{token:first.token});assert.equal(replay.status,200);const again=(await replay.json()).data;assert.equal(first.executionId,again.executionId);assert.deepEqual(first.totals,again.totals);
     assert.equal((await post('replay',{token:first.token},{'x-test-deny':'true'})).status,403);
     assert.equal((await post('replay',{token:first.token},{'x-test-user':'different'})).status,403);

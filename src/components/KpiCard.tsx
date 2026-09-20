@@ -7,7 +7,7 @@ import { formatKpiValue } from '../lib/formatters';
 
 interface KpiCardProps {
   title: string;
-  value: string | number;
+  value: string | number | null;
   change?: number; // percentage or pp change
   changeLabel?: string; // e.g., "vs matched period"
   isPositiveGood?: boolean; // If true, positive change is green. If false, positive change is red.
@@ -98,11 +98,11 @@ export default function KpiCard({
           
           {/* Main KPI Value */}
           <div className="flex items-baseline gap-1.5 my-1.5 flex-wrap">
-            {prefix && <span className="text-base sm:text-lg font-semibold text-text-sec">{prefix}</span>}
+            {prefix && value !== null && value !== undefined && <span className="text-base sm:text-lg font-semibold text-text-sec">{prefix}</span>}
             <span className="text-kpi-value font-display font-bold text-text-main text-2xl sm:text-3xl tracking-tight tabular-nums">
-              {typeof value === "number" ? formatKpiValue(value) : value}
+              {value === null || value === undefined ? "Unavailable" : typeof value === "number" ? formatKpiValue(value) : value}
             </span>
-            {suffix && <span className="text-xs sm:text-sm font-medium text-text-sec ml-0.5">{suffix}</span>}
+            {suffix && value !== null && value !== undefined && <span className="text-xs sm:text-sm font-medium text-text-sec ml-0.5">{suffix}</span>}
           </div>
         </div>
         
@@ -119,7 +119,7 @@ export default function KpiCard({
           ) : subtitle ? (
             <div className="text-xs text-text-mute font-medium leading-relaxed">{subtitle}</div>
           ) : (
-            <div className="text-xs text-text-mute font-normal">Stable vs baseline</div>
+            <div className="text-xs text-text-mute font-normal">No comparison supplied</div>
           )}
 
           {/* Drill-down Actions */}

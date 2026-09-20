@@ -118,7 +118,7 @@ export default function DataTrust() {
       {/* KPI Cards for Timing Anomalies */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5 mb-6">
         <KpiCard
-          title="Audited Vendor Records"
+          title="Vendor Transaction Rows Checked"
           value={timingAnomalies?.total_records || 0}
           subtitle="Transactions in view"
         />
@@ -133,9 +133,9 @@ export default function DataTrust() {
           subtitle="HLC delivery < lead capture"
         />
         <KpiCard
-          title="Hospital Plan Mismatches"
+          title="Hospital Flag / Timestamp Mismatches"
           value={timingAnomalies?.hospital_applied_inconsistent_count || 0}
-          subtitle="Applied without plan flag"
+          subtitle="Recorded flag and timestamp disagree"
         />
       </div>
 
@@ -201,12 +201,12 @@ export default function DataTrust() {
                   <th className="py-3 px-4">Vendor</th>
                   <th className="py-3 px-4 text-right">Transactions</th>
                   <th className="py-3 px-4 text-center">Delivery</th>
-                  <th className="py-3 px-4 text-center">Calls / Dialed</th>
+                  <th className="py-3 px-4 text-center">Calls / Dialled</th>
                   <th className="py-3 px-4 text-center">RPC</th>
-                  <th className="py-3 px-4 text-center">Sale Event</th>
-                  <th className="py-3 px-4 text-center">Billable Sale</th>
+                  <th className="py-3 px-4 text-center">Sale Flag</th>
+                  <th className="py-3 px-4 text-center">Sale Flag with Recorded Revenue</th>
                   <th className="py-3 px-4 text-center">Revenue</th>
-                  <th className="py-3 px-4 text-right">Realized Rev</th>
+                  <th className="py-3 px-4 text-right">Recorded Revenue</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-mono text-xs">
@@ -305,12 +305,12 @@ export default function DataTrust() {
                   <th className="py-3 px-4">Vendor Count Bucket</th>
                   <th className="py-3 px-4 text-right">Unique Leads</th>
                   <th className="py-3 px-4 text-right">Lead Share</th>
-                  <th className="py-3 px-4 text-right">Call Rate %</th>
-                  <th className="py-3 px-4 text-right">RPC Rate %</th>
-                  <th className="py-3 px-4 text-right">Sale Event %</th>
-                  <th className="py-3 px-4 text-right">Billable Sale %</th>
-                  <th className="py-3 px-4 text-right">Total Revenue</th>
-                  <th className="py-3 px-4 text-right">Rev / Lead</th>
+                  <th className="py-3 px-4 text-right">Dialled / Fetched Leads (%)</th>
+                  <th className="py-3 px-4 text-right">RPC / Fetched Leads (%)</th>
+                  <th className="py-3 px-4 text-right">Sales / Fetched Leads (%)</th>
+                  <th className="py-3 px-4 text-right">Revenue-Matched Sales / Fetched Leads (%)</th>
+                  <th className="py-3 px-4 text-right">Recorded Revenue</th>
+                  <th className="py-3 px-4 text-right">Recorded Revenue / Lead</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-mono text-xs">

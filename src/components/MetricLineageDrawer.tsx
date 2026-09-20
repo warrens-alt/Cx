@@ -34,7 +34,7 @@ export default function MetricLineageDrawer({ isOpen, onClose, title, lineage, m
 
   // Attempt to resolve official taxonomy item
   const taxItem: MetricTaxonomyItem | undefined =
-    (lineage.itemNo ? getTaxonomyItem(lineage.itemNo) : undefined) ||
+    lineage.mappingStatus ? undefined : (lineage.itemNo ? getTaxonomyItem(lineage.itemNo) : undefined) ||
     (lineage.reportValue ? getTaxonomyItem(lineage.reportValue) : undefined) ||
     (lineage.canonicalName ? getTaxonomyItem(lineage.canonicalName) : undefined) ||
     (lineage.costMetric ? getTaxonomyItem(lineage.costMetric) : undefined) ||
@@ -80,17 +80,21 @@ export default function MetricLineageDrawer({ isOpen, onClose, title, lineage, m
         
         <div className="p-6 flex-1 overflow-y-auto space-y-6">
           
-          {/* Official Taxonomy Specification Card */}
+          <p className="text-xs text-text-sec">{lineage.mappingStatus === 'UNAVAILABLE'
+            ? 'Source mapping unavailable. No calculation is represented as measured.'
+            : lineage.mappingStatus ? 'Legacy calculation definition. Source data and results remain unverified.'
+            : 'Journey reference only. This does not establish that the metric is available in the application.'}</p>
+          {/* Runtime metadata takes precedence over the reference journey catalogue. */}
           {(costMetric || metricName || costMetricFormula || waterfallFormula) && (
             <div className="enterprise-card p-4 space-y-3 border-border-subtle bg-surface-sec/60">
               <h3 className="text-xs font-bold text-text-sec uppercase tracking-wider flex items-center gap-1.5">
-                <BookOpen className="w-3.5 h-3.5 text-brand-primary" /> Official Metric Taxonomy
+                <BookOpen className="w-3.5 h-3.5 text-brand-primary" /> Metric Definition
               </h3>
 
               <div className="grid grid-cols-2 gap-3 text-xs">
                 {metricName && (
                   <div className="col-span-2 bg-surface p-2.5 rounded border border-border-subtle">
-                    <span className="text-text-mute block text-[10px] uppercase font-semibold">Standard Metric Name</span>
+                    <span className="text-text-mute block text-[10px] uppercase font-semibold">Reported Metric Name</span>
                     <span className="font-semibold text-text-main text-sm">{metricName}</span>
                   </div>
                 )}
@@ -117,7 +121,7 @@ export default function MetricLineageDrawer({ isOpen, onClose, title, lineage, m
 
               {waterfallFormula && (
                 <div className="bg-surface p-2.5 rounded border border-border-subtle text-xs">
-                  <span className="text-text-mute block text-[10px] uppercase font-semibold mb-1">Waterfall Conversion Formula</span>
+                  <span className="text-text-mute block text-[10px] uppercase font-semibold mb-1">Calculation Formula</span>
                   <code className="font-mono text-[11px] text-emerald-700 block break-words">{waterfallFormula}</code>
                 </div>
               )}

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { formatKpiValue, formatTableNumber } from '../../lib/formatters';
 import { ChartToolbar } from './ChartToolbar';
 import { Layers, BarChart2, TrendingDown, ArrowRight } from 'lucide-react';
-import { getTaxonomyItem } from '../../lib/taxonomy';
 
 export interface FunnelStep {
   label: string;
@@ -37,9 +36,9 @@ export function FunnelWaterfall({
   if (!steps || steps.length === 0) return null;
   
   const maxVal = Math.max(...steps.map(s => s.value)) || 1;
-  const topOfFunnel = steps[0]?.value || 1;
+  const topOfFunnel = steps[0]?.value ?? 0;
   const bottomOfFunnel = steps[steps.length - 1]?.value || 0;
-  const overallConversionPct = ((bottomOfFunnel / topOfFunnel) * 100).toFixed(1);
+  const overallConversionPct = topOfFunnel > 0 ? ((bottomOfFunnel / topOfFunnel) * 100).toFixed(1) + '%' : 'Unavailable';
 
   // Find the stage with the highest absolute drop-off
   let maxDropoffStage = '';
@@ -93,20 +92,21 @@ export function FunnelWaterfall({
         </div>
       </div>
 
+      <p className="text-xs text-text-mute mb-3">Stage ratios describe the displayed counts. Differences do not prove lead loss, financial leakage or nested populations.</p>
       {/* Summary KPI Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4 bg-surface-sec/70 p-3 rounded-lg border border-border-subtle text-xs">
         <div>
-          <span className="text-xs text-text-mute block">End-to-End Conv.</span>
-          <span className="font-bold text-teal font-mono text-sm tabular-nums">{overallConversionPct}%</span>
+          <span className="text-xs text-text-mute block">Last Stage / First Stage</span>
+          <span className="font-bold text-teal font-mono text-sm tabular-nums">{overallConversionPct}</span>
         </div>
         <div>
-          <span className="text-xs text-text-mute block">Total Volume Loss</span>
+          <span className="text-xs text-text-mute block">First–Last Stage Difference</span>
           <span className="font-bold text-semantic-neg font-mono text-sm tabular-nums">
-            -{formatKpiValue(topOfFunnel - bottomOfFunnel)}
+            {formatKpiValue(topOfFunnel - bottomOfFunnel)}
           </span>
         </div>
         <div className="col-span-2 sm:col-span-1">
-          <span className="text-xs text-text-mute block">Peak Leakage Point</span>
+          <span className="text-xs text-text-mute block">Largest Stage Decrease</span>
           <span className="font-medium text-text-main block truncate" title={maxDropoffStage}>
             {maxDropoffStage || 'None'}
           </span>
@@ -118,7 +118,7 @@ export function FunnelWaterfall({
           {steps.map((step, idx) => {
             const isFirst = idx === 0;
             const pctOfMax = (step.value / maxVal) * 100;
-            const pctOfTop = ((step.value / topOfFunnel) * 100).toFixed(1);
+            const pctOfTop = topOfFunnel > 0 ? ((step.value / topOfFunnel) * 100).toFixed(1) + '% of first stage' : 'First-stage denominator unavailable';
             const dropoffFromPrev = idx > 0 ? steps[idx - 1].value - step.value : 0;
             const retentionRate = idx > 0 && steps[idx - 1].value > 0
               ? ((step.value / steps[idx - 1].value) * 100).toFixed(1)
@@ -134,8 +134,7 @@ export function FunnelWaterfall({
                   : 'bg-[#0D9488]';
 
             const isBarWide = pctOfMax > 18;
-            const tax = getTaxonomyItem(step.label);
-            const costCode = step.costMetric || tax?.costMetric;
+            const costCode = step.costMetric;
 
             return (
               <div key={step.label} className="relative flex items-center group">
@@ -149,7 +148,7 @@ export function FunnelWaterfall({
                     )}
                   </div>
                   <div className="text-xs text-text-mute font-mono">
-                    {pctOfTop}% of top
+                    {pctOfTop}
                   </div>
                 </div>
                 
@@ -171,7 +170,7 @@ export function FunnelWaterfall({
                     </span>
                     {retentionRate && (
                       <span className="block text-xs text-text-mute mt-0.5 tabular-nums">
-                        {retentionRate}% step yield
+                        {retentionRate}% of previous stage
                       </span>
                     )}
                   </div>
@@ -191,8 +190,7 @@ export function FunnelWaterfall({
               ? ((step.value / steps[idx - 1].value) * 100).toFixed(1)
               : null;
 
-            const tax = getTaxonomyItem(step.label);
-            const costCode = step.costMetric || tax?.costMetric;
+            const costCode = step.costMetric;
 
             return (
               <div key={step.label} className="relative flex flex-col">
@@ -223,7 +221,7 @@ export function FunnelWaterfall({
                         {formatTableNumber(step.value)}
                       </span>
                       <span className="text-xs text-text-mute ml-1.5 font-mono">
-                        ({((step.value / topOfFunnel) * 100).toFixed(1)}%)
+                        ({topOfFunnel > 0 ? ((step.value / topOfFunnel) * 100).toFixed(1) + '% of first stage' : 'Unavailable'})
                       </span>
                     </div>
                   </div>
@@ -231,11 +229,11 @@ export function FunnelWaterfall({
                   {!isFirst && (
                     <div className="mt-2.5 pt-2 border-t border-border-subtle/50 flex items-center justify-between text-xs">
                       <span className="text-text-sec">
-                        Conversion from previous: <strong className="text-teal font-mono">{stepConv}%</strong>
+                        Relative to previous stage: <strong className="text-teal font-mono">{stepConv === null ? 'Unavailable' : stepConv + '%'}</strong>
                       </span>
                       {dropoffFromPrev > 0 && (
                         <span className="text-rose-600 font-mono font-medium">
-                          Dropped: -{formatTableNumber(dropoffFromPrev)}
+                          Stage decrease: {formatTableNumber(dropoffFromPrev)}
                         </span>
                       )}
                     </div>

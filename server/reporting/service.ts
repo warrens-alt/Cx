@@ -46,13 +46,13 @@ export class ReportService {
     }
     return { executionId: digest({ request, release: digest(release) }), queryJobId: result.jobId, engineHash: release.engineHash, token, request, releaseId: release.releaseId,
       modelVersion: release.modelVersion, metricVersion: release.metricVersion, releaseCutoff: release.cutoff,
-      sourceBatchIds: release.sourceBatchIds, totals, groups, generatedAt: new Date().toISOString(), validation: release.checks, sources: release.sources };
+      sourceBatchIds: release.sourceBatchIds, metricDefinitions: request.metrics.map(id => METRIC_BY_ID[id]), totals, groups, generatedAt: new Date().toISOString(), validation: release.checks, sources: release.sources };
   }
   async evidence(token: string, principal: Principal, metric: string, group: string | null) {
     const { request, release } = await this.resolve(token, principal);
     const result = await this.repository.query(compileEvidence(request, release, metric, group));
     if (result.rows.length > 50000) throw new RequestError('Evidence export exceeds 50,000 records. Narrow the signed report scope; truncation is not allowed.', 413);
     return { executionId: digest({ request, release: digest(release) }), request, releaseId: release.releaseId, metricVersion: release.metricVersion,
-      metricId: metric, group, rows: result.rows, rowCount: result.rows.length, truncated: false, jobId: result.jobId };
+      metricId: metric, metricDefinition: METRIC_BY_ID[metric], group, rows: result.rows, rowCount: result.rows.length, truncated: false, jobId: result.jobId };
   }
 }

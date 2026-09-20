@@ -1,3 +1,4 @@
+import { BRAND, PAGE_TITLES } from '../contracts/naming';
 import { useClient } from './lib/ClientContext';
 import { ClientProvider } from './lib/ClientContext';
 import React, { Suspense, useState, useEffect } from 'react';
@@ -75,53 +76,53 @@ function Sidebar({ onCloseMobile, onOpenCommandPalette }: SidebarProps) {
     {
       title: 'OVERVIEW',
       items: [
-        { name: 'Evidence Reports', path: '/reports', icon: ShieldCheck },
-        { name: 'Legacy Executive Overview', path: '/overview', icon: LayoutDashboard },
-        { name: 'Automated Insights', path: '/insights', icon: Sparkles },
-        { name: 'Data Explorer', path: '/explore', icon: Compass }
+        { name: PAGE_TITLES['/reports'], path: '/reports', icon: ShieldCheck },
+        { name: PAGE_TITLES['/overview'], path: '/overview', icon: LayoutDashboard },
+        { name: PAGE_TITLES['/insights'], path: '/insights', icon: Sparkles },
+        { name: PAGE_TITLES['/explore'], path: '/explore', icon: Compass }
       ]
     },
     {
       title: 'OPERATIONS',
       items: [
-        { name: 'Routing & Handoffs', path: '/routing', icon: GitBranch },
-        { name: 'Call Performance', path: '/call-performance', icon: Phone },
-        { name: 'Speed to Lead', path: '/speed-to-lead', icon: Phone },
-        { name: 'Acquisition & Media', path: '/acquisition', icon: Megaphone }
+        { name: PAGE_TITLES['/routing'], path: '/routing', icon: GitBranch },
+        { name: PAGE_TITLES['/call-performance'], path: '/call-performance', icon: Phone },
+        { name: PAGE_TITLES['/speed-to-lead'], path: '/speed-to-lead', icon: Phone },
+        { name: PAGE_TITLES['/acquisition'], path: '/acquisition', icon: Megaphone }
       ]
     },
     {
       title: 'COMMERCIAL',
       items: [
-        { name: 'Outcomes & Revenue', path: '/outcomes', icon: Banknote }
+        { name: PAGE_TITLES['/outcomes'], path: '/outcomes', icon: Banknote }
       ]
     },
     {
       title: 'ANALYSIS',
       items: [
-        { name: 'Sources & Mix', path: '/sources', icon: Share2 },
-        { name: 'Lead Performance', path: '/lead-performance', icon: Activity },
-        { name: 'Lead Quality', path: '/quality', icon: CheckCircle2 },
-        { name: 'Consumer Re-entry', path: '/consumers', icon: Repeat },
-        { name: 'Re-vetting Analysis', path: '/revetting', icon: Award },
-        { name: 'Cohorts', path: '/cohorts', icon: Activity },
-        { name: 'Lead Records Explorer', path: '/explorer', icon: Search }
+        { name: PAGE_TITLES['/sources'], path: '/sources', icon: Share2 },
+        { name: PAGE_TITLES['/lead-performance'], path: '/lead-performance', icon: Activity },
+        { name: PAGE_TITLES['/quality'], path: '/quality', icon: CheckCircle2 },
+        { name: PAGE_TITLES['/consumers'], path: '/consumers', icon: Repeat },
+        { name: PAGE_TITLES['/revetting'], path: '/revetting', icon: Award },
+        { name: PAGE_TITLES['/cohorts'], path: '/cohorts', icon: Activity },
+        { name: PAGE_TITLES['/explorer'], path: '/explorer', icon: Search }
       ]
     },
     {
       title: 'DATA TRUST & QUALITY',
       items: [
-        { name: 'Data Trust Matrix', path: '/data-trust', icon: ShieldCheck },
-        { name: 'Data Quality & Freshness', path: '/data-quality', icon: ShieldAlert },
-        { name: 'Data Coverage', path: '/data-coverage', icon: Activity },
-        { name: 'Data Audit & Record Trace', path: '/audit', icon: Search }
+        { name: PAGE_TITLES['/data-trust'], path: '/data-trust', icon: ShieldCheck },
+        { name: PAGE_TITLES['/data-quality'], path: '/data-quality', icon: ShieldAlert },
+        { name: PAGE_TITLES['/data-coverage'], path: '/data-coverage', icon: Activity },
+        { name: PAGE_TITLES['/audit'], path: '/audit', icon: Search }
       ]
     },
     {
       title: 'SYSTEM',
       items: [
-        { name: 'Analytics Validation', path: '/validation', icon: CheckCircle2 },
-        { name: 'Admin & Configuration', path: '/admin', icon: SettingsIcon }
+        { name: PAGE_TITLES['/validation'], path: '/validation', icon: CheckCircle2 },
+        { name: PAGE_TITLES['/admin'], path: '/admin', icon: SettingsIcon }
       ]
     }
   ];
@@ -145,8 +146,8 @@ function Sidebar({ onCloseMobile, onOpenCommandPalette }: SidebarProps) {
             <Activity className="w-4 h-4 text-white" />
           </div>
           <div className="flex flex-col">
-            <span className="font-display font-bold text-sm tracking-tight text-white leading-tight">ConversionX</span>
-            <span className="text-[10px] tracking-wider uppercase text-slate-400 font-medium">Revenue Intelligence</span>
+            <span className="font-display font-bold text-sm tracking-tight text-white leading-tight">{BRAND.name}</span>
+            <span className="text-[10px] tracking-wider uppercase text-slate-400 font-medium">{BRAND.description}</span>
           </div>
         </div>
 

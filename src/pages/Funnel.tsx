@@ -39,7 +39,7 @@ export default function Funnel() {
     rate: d.rate,
     costMetric: d.costMetric,
     itemNo: d.itemNo,
-    isTerminal: d.stage === 'Activated Sales' || d.stage === 'Activated'
+    isTerminal: d.stage === 'Leads with Activations' || d.stage === 'Activated'
   }));
 
   const callChart = callData.chart || [];
@@ -70,8 +70,8 @@ export default function Funnel() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="min-h-[450px] flex flex-col">
           <FunnelWaterfall 
-            title="Revenue Leakage Waterfall" 
-            subtitle="Lifecycle transition analysis highlighting volume loss."
+            title="Recorded Lead-Stage Counts" 
+            subtitle="Recorded stage counts; a decline between non-nested populations is not proof of leakage."
             steps={steps}
           />
         </div>
@@ -90,27 +90,27 @@ export default function Funnel() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="min-h-[400px] flex flex-col">
           <ComboChart 
-            title="Call Frequency vs. Right Party Contact Rate" 
-            subtitle="Right party contact rate (CP.RPC) by call attempt bucket."
+            title="RPC Share by Call-Attempt Band" 
+            subtitle="Lead RPC flags / lead records in each call-attempt band. CP.RPC is a cost metric and is not plotted here."
             data={cumulativeData}
             xKey="bucket"
             barKey="leads"
             lineKey="rpcRate"
-            barName="Dialed Leads"
-            lineName="RPC Rate (CP.RPC)"
+            barName="Dialled Leads"
+            lineName="RPC / Leads in Band (%)"
             height={310}
           />
         </div>
         <div className="min-h-[400px] flex flex-col">
           <ComboChart 
-            title="Call Frequency vs. Lead-to-Sale Rate" 
-            subtitle="Qualified Leads to Sale Rate (CP.Sale) by call attempt bucket."
+            title="Sale Share by Call-Attempt Band" 
+            subtitle="Leads with sales / leads in each call-attempt band."
             data={cumulativeData}
             xKey="bucket"
             barKey="leads"
             lineKey="saleRate"
-            barName="Dialed Leads"
-            lineName="Sale Rate (CP.Sale)"
+            barName="Dialled Leads"
+            lineName="Sales / Leads in Band (%)"
             height={310}
           />
         </div>

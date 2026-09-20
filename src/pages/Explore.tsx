@@ -1,3 +1,5 @@
+import { EXPLORER_METRICS, formatExplorerValue } from '../../contracts/legacyMetrics';
+import { DIMENSION_LABELS } from '../../contracts/naming';
 import React, { useState, useEffect } from 'react';
 import { PageShell } from '../components/PageShell';
 import { useClient } from '../lib/ClientContext';
@@ -35,36 +37,8 @@ import {
   Layers
 } from 'lucide-react';
 
-const METRICS = [
-  { id: 'leads', label: 'Unique Leads' },
-  { id: 'delivered', label: 'Delivered Leads' },
-  { id: 'called', label: 'Called Leads' },
-  { id: 'rpcs', label: 'Right Party Contacts (RPC)' },
-  { id: 'sales', label: 'Sales' },
-  { id: 'billable_sales', label: 'Billable Sales' },
-  { id: 'activations', label: 'Activations' },
-  { id: 'revenue', label: 'Revenue' },
-  { id: 'delivery_rate', label: 'Delivery Rate (%)' },
-  { id: 'dial_rate', label: 'Dial Rate (%)' },
-  { id: 'call_coverage', label: 'Call Coverage (%)' },
-  { id: 'rpc_rate', label: 'RPC Rate (%)' },
-  { id: 'sale_rate', label: 'Sale Rate (%)' },
-  { id: 'lead_to_sale_rate', label: 'Lead to Sale Rate (%)' },
-  { id: 'billable_sale_rate', label: 'Billable Sale Rate (%)' },
-  { id: 'activation_rate', label: 'Activation Rate (%)' },
-  { id: 'revenue_per_lead', label: 'Revenue per Lead' },
-  { id: 'revenue_per_sale', label: 'Revenue per Sale' },
-  { id: 'calls_per_lead', label: 'Calls per Lead' }
-];
-
-const DIMENSIONS = [
-  { id: 'date', label: 'Date (Daily)' },
-  { id: 'source', label: 'Lead Source' },
-  { id: 'vendor', label: 'HLC Vendor' },
-  { id: 'routing_depth', label: 'Routing Depth' },
-  { id: 'revet_status', label: 'Revet Status' },
-  { id: 'valid_lead', label: 'Validation Flag' }
-];
+const METRICS = EXPLORER_METRICS;
+const DIMENSIONS = Object.entries(DIMENSION_LABELS).filter(([id]) => id !== 'vendor').map(([id,label]) => ({id,label}));
 
 const DONUT_COLORS = [
   '#247F7D', '#18364F', '#0284c7', '#6366f1', 
@@ -118,19 +92,18 @@ export default function Explore() {
       : [];
 
   const totalSampleSize = rows.reduce((acc: number, r: any) => acc + (Number(r?.sampleSize) || 0), 0);
-  const isRate = metric.includes('rate');
+  const selectedMetric = METRICS.find(m => m.id === metric)!;
+  const isRate = selectedMetric.unit === 'percent';
+  const additive = selectedMetric.additive;
   const currencyPrefix = data?.metadata?.currency || 'R ';
 
-  const formatY = (val: number) => 
-    isRate ? `${(val * 100).toFixed(1)}%` : metric.includes('revenue') ? `${currencyPrefix}${formatChartAxis(val)}` : formatChartAxis(val);
-
-  const formatTooltip = (val: number) => 
-    isRate ? `${(val * 100).toFixed(2)}%` : metric.includes('revenue') ? formatTableCurrency(val, currencyPrefix) : formatTableNumber(val);
+  const formatY = (val: number) => formatExplorerValue(val, metric, currencyPrefix);
+  const formatTooltip = (val: unknown) => formatExplorerValue(val, metric, currencyPrefix);
 
   // Derived statistics for the results header
-  const metricValues = rows.map(r => Number(r.value) || 0);
+  const metricValues = rows.filter(r => r.value !== null && r.value !== undefined).map(r => Number(r.value));
   const totalMetricSum = metricValues.reduce((a, b) => a + b, 0);
-  const avgMetricVal = rows.length > 0 ? totalMetricSum / rows.length : 0;
+  const avgMetricVal = metricValues.length > 0 ? totalMetricSum / metricValues.length : null;
   
   const sortedRows = [...rows].sort((a, b) => (Number(b.value) || 0) - (Number(a.value) || 0));
   const topContributor = sortedRows[0];
@@ -170,6 +143,7 @@ export default function Explore() {
             <div>
               <label className="block text-[12px] font-semibold text-text-sec uppercase tracking-wider mb-1.5">Measure</label>
               <select 
+                aria-label="Measure"
                 value={metric}
                 onChange={e => setMetric(e.target.value)}
                 className="w-full border border-border rounded-lg px-3 py-2 bg-surface text-sm text-text-main focus:border-teal focus:ring-1 focus:ring-teal outline-none"
@@ -181,6 +155,7 @@ export default function Explore() {
             <div>
               <label className="block text-[12px] font-semibold text-text-sec uppercase tracking-wider mb-1.5">Dimension</label>
               <select 
+                aria-label="Dimension"
                 value={dimension}
                 onChange={e => setDimension(e.target.value)}
                 className="w-full border border-border rounded-lg px-3 py-2 bg-surface text-sm text-text-main focus:border-teal focus:ring-1 focus:ring-teal outline-none"
@@ -192,6 +167,7 @@ export default function Explore() {
             <div>
               <label className="block text-[12px] font-semibold text-text-sec uppercase tracking-wider mb-1.5">Visualisation</label>
               <select 
+                aria-label="Visualisation"
                 value={chartType}
                 onChange={e => setChartType(e.target.value as any)}
                 className="w-full border border-border rounded-lg px-3 py-2 bg-surface text-sm text-text-main focus:border-teal focus:ring-1 focus:ring-teal outline-none"
@@ -199,7 +175,7 @@ export default function Explore() {
                 <option value="bar">Bar Chart</option>
                 <option value="line">Line Chart</option>
                 <option value="area">Area Chart</option>
-                <option value="donut">Donut Composition</option>
+                <option value="donut" disabled={!additive}>Donut Composition</option>
                 <option value="table">Data Table</option>
               </select>
             </div>
@@ -264,6 +240,7 @@ export default function Explore() {
                     <Activity className="w-4 h-4" />
                   </button>
                   <button
+                    disabled={!additive}
                     onClick={() => setChartType('donut')}
                     className={`p-1.5 rounded transition-colors ${chartType === 'donut' ? 'bg-surface shadow-xs text-teal font-semibold' : 'text-text-sec hover:text-text-main'}`}
                     title="Donut Chart"
@@ -284,32 +261,32 @@ export default function Explore() {
               {rows.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-surface-sec/50 p-4 rounded-xl border border-border-subtle text-xs">
                   <div>
-                    <span className="text-xs font-semibold text-text-mute uppercase block">Aggregate Total</span>
+                    <span className="text-xs font-semibold text-text-mute uppercase block">Returned Group Total</span>
                     <span className="text-base sm:text-lg font-bold font-mono text-text-main">
-                      {isRate ? `${(avgMetricVal * 100).toFixed(1)}% (Avg)` : formatTooltip(totalMetricSum)}
+                      {additive ? formatTooltip(totalMetricSum) : 'Not additive'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-xs font-semibold text-text-mute uppercase block">Segment Average</span>
+                    <span className="text-xs font-semibold text-text-mute uppercase block">Unweighted Group Average</span>
                     <span className="text-base sm:text-lg font-bold font-mono text-text-sec">
                       {formatTooltip(avgMetricVal)}
                     </span>
                   </div>
                   <div>
-                    <span className="text-xs font-semibold text-text-mute uppercase block">Top Contributor</span>
+                    <span className="text-xs font-semibold text-text-mute uppercase block">Highest Displayed Value</span>
                     <span className="text-sm font-semibold text-teal block" title={topContributor?.dim1}>
                       {topContributor?.dim1 || 'None'}
                     </span>
                     <span className="text-xs text-text-mute font-mono">
-                      {formatTooltip(Number(topContributor?.value) || 0)}
+                      {formatTooltip(topContributor?.value)}
                     </span>
                   </div>
                   <div>
-                    <span className="text-xs font-semibold text-text-mute uppercase block">Top 3 Concentration</span>
+                    <span className="text-xs font-semibold text-text-mute uppercase block">Top 3 Share (Returned Groups)</span>
                     <span className="text-base sm:text-lg font-bold font-mono text-text-main">
-                      {top3Share}%
+                      {additive ? `${top3Share}%` : 'Not applicable'}
                     </span>
-                    <span className="text-xs text-text-mute block">of total volume</span>
+                    <span className="text-xs text-text-mute block">Not an overall ratio or complete report total</span>
                   </div>
                 </div>
               )}
@@ -320,13 +297,13 @@ export default function Explore() {
                   <EmptyState title="No Records Found" message="No data matches the selected filters and dimensions." />
                 ) : chartType === 'table' ? (
                   <div className="overflow-x-auto border border-border-subtle rounded-lg">
-                    <table className="enterprise-table w-full">
+                    <table className="enterprise-table w-full" aria-label="Explorer results">
                       <thead className="bg-surface-sec text-text-sec font-semibold text-xs uppercase tracking-wider">
                         <tr>
-                          <th>{DIMENSIONS.find(d => d.id === dimension)?.label}</th>
-                          <th className="text-right">{METRICS.find(m => m.id === metric)?.label}</th>
-                          <th className="text-right">Share of Total</th>
-                          <th className="text-right">Sample Size</th>
+                          <th scope="col">{DIMENSIONS.find(d => d.id === dimension)?.label}</th>
+                          <th scope="col" className="text-right" aria-label={METRICS.find(m => m.id === metric)?.label}>{METRICS.find(m => m.id === metric)?.label}</th>
+                          <th scope="col" className="text-right">Share of Returned Total</th>
+                          <th scope="col" className="text-right">Sample Size</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border-subtle text-xs font-mono">
@@ -336,7 +313,7 @@ export default function Explore() {
                             <tr key={i} className="hover:bg-surface-sec/70 transition-colors">
                               <td className="font-sans font-medium text-text-main">{row.dim1 || '(None)'}</td>
                               <td className="text-right font-semibold text-teal">{formatTooltip(row.value)}</td>
-                              <td className="text-right text-text-sec">{share}%</td>
+                              <td className="text-right text-text-sec">{additive ? `${share}%` : 'Not applicable'}</td>
                               <td className="text-right text-text-mute">{formatTableNumber(row.sampleSize)}</td>
                             </tr>
                           );
@@ -344,7 +321,7 @@ export default function Explore() {
                       </tbody>
                     </table>
                   </div>
-                ) : chartType === 'donut' ? (
+                ) : chartType === 'donut' && additive ? (
                   <div className="h-[400px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>

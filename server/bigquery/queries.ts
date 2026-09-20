@@ -236,7 +236,7 @@ export async function getOverviewStats(params: BaseQueryParams) {
   if (unbilledSales > 0) {
     attentionItems.push({
       id: 'unbilled_sales',
-      title: 'Unbilled Sales (Revenue Leakage)',
+      title: 'Leads with Sales but No Matched Revenue',
       severity: 'critical',
       magnitude: `${unbilledSales} sale events generated R0 revenue`,
       affected: `${((unbilledSales / Math.max(1, sales)) * 100).toFixed(1)}% of total sales`,
@@ -352,13 +352,13 @@ export async function getFunnelStats(params: BaseQueryParams) {
 
   return [
     { stage: 'Fetched Leads', count: captured, rate: 100, itemNo: 22, costMetric: 'CPL' },
-    { stage: 'Standardised Leads', count: valid, rate: captured > 0 ? Number(((valid / captured) * 100).toFixed(1)) : 0, itemNo: 23, costMetric: 'CPL.Standardised' },
+    { stage: 'Valid Leads (Recorded Flag)', count: valid, rate: captured > 0 ? Number(((valid / captured) * 100).toFixed(1)) : 0, itemNo: null, costMetric: 'CPL.Valid' },
     { stage: 'Delivered Leads', count: delivered, rate: valid > 0 ? Number(((delivered / valid) * 100).toFixed(1)) : 0, itemNo: 33, costMetric: 'CPL.Delivered' },
-    { stage: 'Dialed Leads', count: called, rate: delivered > 0 ? Number(((called / delivered) * 100).toFixed(1)) : 0, itemNo: 37, costMetric: 'CPL.Dialed' },
-    { stage: 'Right Party Contact', count: rpc, rate: called > 0 ? Number(((rpc / called) * 100).toFixed(1)) : 0, itemNo: 39, costMetric: 'CP.RPC' },
-    { stage: 'Sales', count: sale, rate: rpc > 0 ? Number(((sale / rpc) * 100).toFixed(1)) : 0, itemNo: 40, costMetric: 'CP.Sale' },
-    { stage: 'Delivered Sales', count: billableSale, rate: sale > 0 ? Number(((billableSale / sale) * 100).toFixed(1)) : 0, itemNo: 45, costMetric: 'CPS.Delivered' },
-    { stage: 'Activated Sales', count: activated, rate: billableSale > 0 ? Number(((activated / billableSale) * 100).toFixed(1)) : 0, itemNo: 46, costMetric: 'CPS.Activated' }
+    { stage: 'Dialled Leads', count: called, rate: delivered > 0 ? Number(((called / delivered) * 100).toFixed(1)) : 0, itemNo: 37, costMetric: 'CPL.Dialed' },
+    { stage: 'Leads with RPC', count: rpc, rate: called > 0 ? Number(((rpc / called) * 100).toFixed(1)) : 0, itemNo: 39, costMetric: 'CP.RPC' },
+    { stage: 'Leads with Sales', count: sale, rate: rpc > 0 ? Number(((sale / rpc) * 100).toFixed(1)) : 0, itemNo: 40, costMetric: 'CP.Sale' },
+    { stage: 'Leads with Sales and Recorded Revenue', count: billableSale, rate: sale > 0 ? Number(((billableSale / sale) * 100).toFixed(1)) : 0, itemNo: null, costMetric: null },
+    { stage: 'Leads with Activations', count: activated, rate: billableSale > 0 ? Number(((activated / billableSale) * 100).toFixed(1)) : 0, itemNo: 46, costMetric: 'CPS.Activated' }
   ];
 }
 
@@ -423,7 +423,7 @@ export async function getDataHealthStats(params: BaseQueryParams) {
   // If no issues, provide a clean slate record
   if (issues.length === 0) {
      issues.push({
-      issue: 'No anomalies detected',
+      issue: 'No exceptions found by these three checks',
       severity: 'Info',
       affected: 0,
       percentage: 0,
@@ -966,8 +966,8 @@ export async function getSpeedToLeadStats(params: BaseQueryParams) {
   
   return {
     metrics: [
-      { name: 'Capture to Delivery', avg: stats.avg_c2d != null ? (stats.avg_c2d < 1 ? '< 1m' : `${Math.round(stats.avg_c2d)}m`) : 'N/A', median: 'N/A', p75: 'N/A', p90: 'N/A', p95: 'N/A' },
-      { name: 'Delivery to First Call', avg: stats.avg_stl ? `${Math.round(stats.avg_stl)}m` : 'N/A', median: 'N/A', p75: 'N/A', p90: 'N/A', p95: 'N/A' },
+      { id: 'capture_to_delivery', name: 'Capture to Delivery', avg: stats.avg_c2d != null ? (stats.avg_c2d < 1 ? '< 1m' : `${Math.round(stats.avg_c2d)}m`) : 'N/A', median: 'N/A', p75: 'N/A', p90: 'N/A', p95: 'N/A' },
+      { id: 'delivery_to_first_dial', name: 'Delivery to First Call', avg: stats.avg_stl ? `${Math.round(stats.avg_stl)}m` : 'N/A', median: 'N/A', p75: 'N/A', p90: 'N/A', p95: 'N/A' },
     ],
     buckets: [
       buildBucket('< 5m', Number(stats.bucket_1_leads) || 0, Number(stats.bucket_1_rpc) || 0, Number(stats.bucket_1_sale) || 0, Number(stats.bucket_1_billable) || 0, Number(stats.bucket_1_activation) || 0, Number(stats.bucket_1_revenue) || 0),

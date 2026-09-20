@@ -29,7 +29,7 @@ export default function Cohorts() {
           category="Maturation & Lifecycle"
           description="Track metric maturation and full funnel yield over time based on capture date."
         />
-        <EmptyState message="No cohort records found for the selected client and date range." />
+        <EmptyState message="No cohort records found for the selected tenant and date range." />
       </PageShell>
     );
   }
@@ -50,6 +50,8 @@ export default function Cohorts() {
     if (value >= 10) return 'bg-[#cce8e8] text-[#0f2d2c]';
     return 'bg-[#f0f7f7] text-text-sec';
   };
+
+  const heatmapLabel = { call_coverage: 'Dialled / Fetched Leads', sale: 'Sales / Fetched Leads', activation: 'Activations / Fetched Leads' }[metricType];
 
   const formatHeatmapVal = (val: number | null) => {
     if (val === null) return '-';
@@ -81,11 +83,9 @@ export default function Cohorts() {
             onChange={(e) => setMetricType(e.target.value)}
             className="px-3 py-1.5 bg-white border border-border-strong rounded-lg text-xs text-text-main outline-none focus:border-brand font-medium shadow-xs"
           >
-            <option value="call_coverage">Dial Coverage %</option>
-            <option value="rpc">Right Party Contact (RPC) %</option>
-            <option value="sale">Lead &rarr; Sale %</option>
-            <option value="activation">Delivered &rarr; Activation %</option>
-            <option value="revenue">Revenue per Lead ({currencyPrefix})</option>
+            <option value="call_coverage">Dialled / Fetched Leads (%)</option>
+            <option value="sale">Sales / Fetched Leads (%)</option>
+            <option value="activation">Activations / Fetched Leads (%)</option>
           </select>
         </div>
       </PageHeader>
@@ -96,7 +96,7 @@ export default function Cohorts() {
           <div className="px-6 py-4 border-b border-border-subtle bg-surface-sec flex items-center justify-between">
             <div>
               <h2 className="text-card-title font-semibold text-text-main">Conversion Maturation Matrix</h2>
-              <p className="text-xs text-text-sec mt-0.5">Cumulative {metricType.replace('_', ' ')} progression by days elapsed since lead capture.</p>
+              <p className="text-xs text-text-sec mt-0.5">Cumulative {heatmapLabel} progression by calendar days since capture; the denominator is fetched leads in each cohort.</p>
             </div>
             <span className="text-xs font-mono text-text-mute px-2.5 py-1 bg-surface rounded border border-border-subtle">
               D0 through D30 maturation
@@ -176,13 +176,13 @@ export default function Cohorts() {
                   <th className="px-5 py-3">Cohort</th>
                   <th className="px-4 py-3 text-right">Leads</th>
                   <th className="px-4 py-3 text-right">Delivered</th>
-                  <th className="px-4 py-3 text-right">Dialed</th>
+                  <th className="px-4 py-3 text-right">Dialled</th>
                   <th className="px-4 py-3 text-right">RPC</th>
                   <th className="px-4 py-3 text-right">Sales</th>
-                  <th className="px-4 py-3 text-right">Billable</th>
+                  <th className="px-4 py-3 text-right">Leads with Sales and Recorded Revenue</th>
                   <th className="px-4 py-3 text-right">Activated</th>
-                  <th className="px-4 py-3 text-right">Total Revenue</th>
-                  <th className="px-4 py-3 text-right">Rev / Lead</th>
+                  <th className="px-4 py-3 text-right">Recorded Revenue</th>
+                  <th className="px-4 py-3 text-right">Recorded Revenue / Lead</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-subtle font-mono text-xs">
