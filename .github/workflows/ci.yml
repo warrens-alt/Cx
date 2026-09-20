@@ -1,7 +1,7 @@
 name: ConversionX CI
 on:
   push:
-    branches: [main, 'fix/audit-integrity-20260920']
+    branches: [main, 'fix/audit-integrity-20260920', 'improvement/frontend-20260920']
   pull_request:
     branches: [main]
   workflow_dispatch:

@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import { verifyRestoredFilters } from './filter-controls.mjs';
+import { verifyFrontendOptimisations } from './optimisation-controls.mjs';
 const fixture=JSON.parse(fs.readFileSync('tests/fixtures/reporting-reference.json','utf8'));
 const server=spawn(process.execPath,['dist/server/server.mjs'],{env:{...process.env,NODE_ENV:'production',PORT:'3187',IAP_AUDIENCE:'',CX_REPORTING_DATASET:''},stdio:'pipe'});
 let browser, activePage;
@@ -91,7 +92,7 @@ try{
     await metricHeader.waitFor();assert.equal((await metricHeader.textContent()).trim(),'Sales / Dialled Leads (%)');checks++;
     assert.equal(await page.getByText('1,250%',{exact:true}).count(),0);checks++;
     await page.screenshot({path:`verification/naming-explorer-${viewport.width}.png`,fullPage:true});
-    await page.goto('http://127.0.0.1:3187/call-performance');
+    await page.goto('http://127.0.0.1:3187/call-performance?startDate=2026-08-01&endDate=2026-08-31');
     await page.getByRole('button',{name:'Report filters',exact:true}).click();
     const filterPanel=page.getByRole('region',{name:'Legacy report filters'});await filterPanel.waitFor();
     checks+=await verifyRestoredFilters(page,viewport);
@@ -142,5 +143,6 @@ try{
     assert.ok(await page.evaluate(()=>matchMedia('(prefers-reduced-motion: reduce)').matches));checks++;
     assert.deepEqual(errors,[]);checks++;await page.close();
   }
+  checks += await verifyFrontendOptimisations(browser, 'http://127.0.0.1:3187');
   fs.writeFileSync('verification/browser.json',JSON.stringify({checks,passed:checks,source:'synthetic API fixtures',liveWarehouseTested:false},null,2));console.log(`${checks} browser assertions passed on desktop and mobile using synthetic responses.`);
 }catch(error){if(activePage&&!activePage.isClosed()){fs.mkdirSync('verification',{recursive:true});await activePage.screenshot({path:'verification/browser-failure.png',fullPage:true});fs.writeFileSync('verification/browser-failure.html',await activePage.content());fs.writeFileSync('verification/browser-failure.json',JSON.stringify({url:activePage.url(),checks,message:String(error),stack:error.stack,headers:await activePage.locator('thead th').allTextContents(),accessibility:await activePage.locator('body').ariaSnapshot()},null,2));}throw error;}finally{if(browser)await browser.close();server.kill('SIGTERM');}

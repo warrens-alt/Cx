@@ -1,135 +1,65 @@
-import React, { createContext, useContext, useMemo } from 'react';
+import React, { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-
-export interface FilterCondition {
-  operator: 'in' | 'equals' | 'not_equals' | 'between' | 'greater_than' | 'less_than';
-  values?: string[];
-  value?: any;
-  min?: number;
-  max?: number;
-}
-
-export type UniversalFilters = Record<string, FilterCondition>;
+import type { FilterCondition, Filters } from '../../server/bigquery/filters';
+import { clearLegacyFilters, defaultLegacyDates, readLegacyScope, resetLegacyScope, writeLegacyFilter } from './legacyScope';
+export type { FilterCondition };
+export type UniversalFilters = Filters;
 
 interface FilterContextType {
-  startDate: string;
-  setStartDate: (val: string) => void;
-  endDate: string;
-  setEndDate: (val: string) => void;
+  startDate: string; endDate: string; startMonth: string; endMonth: string;
+  setStartDate: (value: string) => void; setEndDate: (value: string) => void;
   setDateRange: (start: string, end: string) => void;
-  startMonth: string;
-  endMonth: string;
-  filters: UniversalFilters;
+  filters: Filters; filterError: string | null;
   setFilter: (key: string, condition: FilterCondition | null) => void;
-  clearFilters: () => void;
-  // Legacy aliases for components that still expect them
-  source: string;
-  setSource: (val: string) => void;
-  vendor: string;
-  setVendor: (val: string) => void;
-  medium: string;
-  setMedium: (val: string) => void;
+  clearFilters: () => void; resetScope: () => void;
+  source: string; vendor: string; medium: string;
+  setSource: (value: string) => void; setVendor: (value: string) => void; setMedium: (value: string) => void;
 }
-
 const FilterContext = createContext<FilterContextType | undefined>(undefined);
 
-export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export function FilterProvider({ children }: { children: React.ReactNode }) {
   const [searchParams, setSearchParams] = useSearchParams();
-  
-  const startDate = searchParams.get('startDate') || '2026-08-01';
-  const endDate = searchParams.get('endDate') || '2026-08-31';
-  const startMonth = startDate.substring(0, 7);
-  const endMonth = endDate.substring(0, 7);
-
-  const updateParam = (key: string, val: string) => {
-    setSearchParams((prev) => {
-      const newParams = new URLSearchParams(prev);
-      if (val) newParams.set(key, val);
-      else newParams.delete(key);
-      return newParams;
-    }, { replace: true });
-  };
-
-  const setDateRange = (start: string, end: string) => {
-    setSearchParams((prev) => {
-      const newParams = new URLSearchParams(prev);
-      if (start) newParams.set('startDate', start);
-      else newParams.delete('startDate');
-      if (end) newParams.set('endDate', end);
-      else newParams.delete('endDate');
-      return newParams;
-    }, { replace: true });
-  };
-
-  const filters = useMemo(() => {
-    const fStr = searchParams.get('filters');
-    if (fStr) {
-      try { return JSON.parse(fStr); } catch(e) {}
-    }
-    // Parse legacy source/vendor if filters object isn't used yet
-    const legacy: UniversalFilters = {};
-    const src = searchParams.get('source');
-    if (src) legacy.source = { operator: 'in', values: src.split(',') };
-    const vnd = searchParams.get('vendor');
-    if (vnd) legacy.vendor = { operator: 'in', values: vnd.split(',') };
-    return legacy;
+  const pendingParams = useRef(new URLSearchParams(searchParams));
+  const [editError, setEditError] = useState<string | null>(null);
+  // Router callbacks do not queue updates like React state. Keep same-tick edits composable;
+  // browser back/forward navigation still replaces this snapshot after each committed location.
+  useLayoutEffect(() => { pendingParams.current = new URLSearchParams(searchParams); setEditError(null); }, [searchParams]);
+  const parsed = useMemo(() => {
+    try { return { ...readLegacyScope(searchParams), filterError: null }; }
+    catch (error) { return { ...defaultLegacyDates(), filters: {} as Filters, filterError: error instanceof Error ? error.message : 'Invalid reporting selection.' }; }
   }, [searchParams]);
-
-  const setFilter = (key: string, condition: FilterCondition | null) => {
-    setSearchParams((prev) => {
-      const newParams = new URLSearchParams(prev);
-      const currentFilters = { ...filters };
-      if (condition === null) {
-        delete currentFilters[key];
-        // Clean up legacy
-        if (key === 'source' || key === 'vendor') newParams.delete(key);
-      } else {
-        currentFilters[key] = condition;
-      }
-      
-      if (Object.keys(currentFilters).length > 0) {
-        newParams.set('filters', JSON.stringify(currentFilters));
-      } else {
-        newParams.delete('filters');
-      }
-      return newParams;
-    }, { replace: true });
-  };
-
-  const clearFilters = () => {
-    setSearchParams((prev) => {
-      const newParams = new URLSearchParams(prev);
-      newParams.delete('filters');
-      newParams.delete('source');
-      newParams.delete('vendor');
-      return newParams;
-    }, { replace: true });
-  }
-
-  // legacy getters
-  const source = filters.source && filters.source.operator === 'in' ? filters.source.values?.join(',') || '' : '';
-  const vendor = filters.vendor && filters.vendor.operator === 'in' ? filters.vendor.values?.join(',') || '' : '';
-  const medium = filters.medium && filters.medium.operator === 'in' ? filters.medium.values?.join(',') || '' : '';
-
-  return (
-    <FilterContext.Provider value={{ 
-      startDate, setStartDate: (val) => updateParam('startDate', val),
-      endDate, setEndDate: (val) => updateParam('endDate', val),
-      setDateRange,
-      startMonth,
-      endMonth,
-      filters, setFilter, clearFilters,
-      source, setSource: (val) => setFilter('source', val ? { operator: 'in', values: val.split(',') } : null),
-      vendor, setVendor: (val) => setFilter('vendor', val ? { operator: 'in', values: val.split(',') } : null),
-      medium, setMedium: (val) => setFilter('medium', val ? { operator: 'in', values: val.split(',') } : null)
-    }}>
-      {children}
-    </FilterContext.Provider>
-  );
-};
-
-export const useFilters = () => {
+  const commit = useCallback((change: (params: URLSearchParams) => URLSearchParams) => {
+    try {
+      const next = change(new URLSearchParams(pendingParams.current));
+      pendingParams.current = next;
+      setEditError(null);
+      setSearchParams(next, { replace: true });
+    } catch (error) { setEditError(error instanceof Error ? error.message : 'The filter could not be applied.'); }
+  }, [setSearchParams]);
+  const setFilter = useCallback((key: string, condition: FilterCondition | null) => commit(params => writeLegacyFilter(params, key, condition)), [commit]);
+  const setDateRange = useCallback((start: string, end: string) => commit(params => {
+    start ? params.set('startDate', start) : params.delete('startDate');
+    end ? params.set('endDate', end) : params.delete('endDate');
+    return params;
+  }), [commit]);
+  const clearFilters = useCallback(() => commit(clearLegacyFilters), [commit]);
+  const resetScope = useCallback(() => commit(params => resetLegacyScope(params)), [commit]);
+  const value = useMemo<FilterContextType>(() => {
+    const get = (key: string) => parsed.filters[key]?.operator === 'in' ? parsed.filters[key].values!.join(',') : '';
+    const set = (key: string, text: string) => setFilter(key, text ? { operator: 'in', values: text.split(',') } : null);
+    return {
+      ...parsed, filterError: parsed.filterError || editError,
+      startMonth: parsed.startDate.slice(0, 7), endMonth: parsed.endDate.slice(0, 7),
+      setStartDate: start => setDateRange(start, parsed.endDate), setEndDate: end => setDateRange(parsed.startDate, end),
+      setDateRange, setFilter, clearFilters, resetScope,
+      source: get('source'), vendor: get('vendor'), medium: get('medium'),
+      setSource: text => set('source', text), setVendor: text => set('vendor', text), setMedium: text => set('medium', text),
+    };
+  }, [parsed, editError, setDateRange, setFilter, clearFilters, resetScope]);
+  return <FilterContext.Provider value={value}>{children}</FilterContext.Provider>;
+}
+export function useFilters() {
   const context = useContext(FilterContext);
   if (!context) throw new Error('useFilters must be used within a FilterProvider');
   return context;
-};
+}

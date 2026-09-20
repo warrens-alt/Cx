@@ -15,7 +15,7 @@ export default function GlobalFilter(_props:{onOpenMobileMenu?:()=>void;onOpenCo
     const payload=await response.json();if(!response.ok||payload.success!==true)throw new Error(typeof payload.error==='string'?payload.error:'Filter choices could not be loaded');return payload.data;
   },staleTime:120000,retry:false});
   const opts=options.data||{},presets=utcDatePresets();
-  const refresh=async()=>{setRefreshing(true);setRefreshError(null);try{await Promise.all([cache.invalidateQueries({queryKey:['analytics']}),options.refetch()]);}catch{setRefreshError('Reload could not complete. Retry the affected report.');}finally{setRefreshing(false);}};
+  const refresh=async()=>{setRefreshing(true);setRefreshError(null);try{await Promise.all([cache.invalidateQueries({queryKey:['analytics']},{throwOnError:true}),options.refetch({throwOnError:true})]);}catch{setRefreshError('Reload could not complete. Retry the affected report.');}finally{setRefreshing(false);}};
   const select=(key:string,label:string,values:any[])=>{
     const selected=filters[key]?.operator==='in'?filters[key]?.values?.join(',')||'':'';
     const choices=Array.isArray(values)?values.map(v=>String(v.value??v)):[];
@@ -27,6 +27,7 @@ export default function GlobalFilter(_props:{onOpenMobileMenu?:()=>void;onOpenCo
     <div className="cx-filter-heading"><div><h2>Report filters</h2><p>Capture-cohort scope. Supported filters depend on the selected report.</p></div><div className="cx-inline-actions">
       <button type="button" className="cx-button-secondary" onClick={clearFilters} disabled={!Object.keys(filters).length}>Clear filters</button>
       <button type="button" className="cx-button-secondary" disabled={refreshing} onClick={refresh}><RefreshCw size={14} className={refreshing?'animate-spin':''}/>{refreshing?'Reloading…':'Reload results'}</button></div></div>
+    {options.isLoading&&<p className="cx-filter-note" role="status">Loading filter choices…</p>}
     <div className="cx-filter-grid">
       <label className="cx-field"><span>Capture date from</span><input aria-label="Capture date from" type="date" value={startDate} max={endDate||undefined} onChange={e=>{if(e.target.value)setDateRange(e.target.value,endDate);}}/></label>
       <label className="cx-field"><span>Capture date through</span><input aria-label="Capture date through" type="date" value={endDate} min={startDate||undefined} onChange={e=>{if(e.target.value)setDateRange(startDate,e.target.value);}}/></label>
