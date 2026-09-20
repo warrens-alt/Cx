@@ -36,7 +36,7 @@ export function DistributionBar({
       <ChartToolbar title={title} subtitle={subtitle} auditTitle={auditTitle} auditContext={auditContext} auditGrain={auditGrain} />
       
       <div style={{ height, width: '100%' }}>
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={60}>
           <BarChart data={data} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
             <XAxis 

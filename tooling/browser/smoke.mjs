@@ -11,12 +11,12 @@ async function waitServer(){for(let i=0;i<100;i++){try{if((await fetch('http://1
 const cutoff='2026-09-20T00:00:00.000Z';
 let checks=0;
 try{
-  await waitServer();browser=await chromium.launch({headless:true});
+  await waitServer();fs.mkdirSync('verification',{recursive:true});browser=await chromium.launch({headless:true});
   for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
-    const page=await browser.newPage({viewport});activePage=page;let noRelease=false,slow=false;
+    const page=await browser.newPage({viewport});activePage=page;let noRelease=false,slow=false;const requestCounts={};
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     await page.route('**/api/**',async route=>{
-      const url=new URL(route.request().url()),payload=route.request().postDataJSON();
+      const url=new URL(route.request().url()),payload=route.request().postDataJSON();requestCounts[url.pathname]=(requestCounts[url.pathname]||0)+1;
       let data={};
       if(url.pathname==='/api/analytics/clients')data=[{id:'default_tenant',name:'Fixture tenant',currency:'ZAR',timezone:'UTC',capabilities:{}}];
       else if(url.pathname==='/api/reporting/catalogue')data={available:!noRelease,reason:noRelease?'No approved release has been published.':null,release:noRelease?null:{releaseId:'rfixture',cutoff,sourceBatchIds:['synthetic-batch'],sources:[],checks:[]}};
@@ -37,14 +37,37 @@ try{
       await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({success:true,data})});
     });
     await page.goto('http://127.0.0.1:3187/reports');await page.getByText('Available release: rfixture',{exact:true}).waitFor();
+    await page.screenshot({path:`verification/frontend-scope-${viewport.width}.png`,fullPage:true});
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'No document-level horizontal overflow');checks++;
+    assert.equal(await page.locator('vite-error-overlay').count(),0);checks++;
+    await page.getByRole('button',{name:'Search pages',exact:true}).click();
+    const searchDialog=page.getByRole('dialog',{name:'Quick navigation',exact:true});await searchDialog.waitFor();
+    await page.getByRole('combobox',{name:'Search pages and navigation'}).fill('zzzz-no-page');
+    await page.getByText('No pages match “zzzz-no-page”. Try “calls”, “sources” or “evidence”.',{exact:true}).waitFor();checks++;
+    await page.keyboard.press('Escape');await searchDialog.waitFor({state:'hidden'});
+    assert.equal(await page.getByRole('button',{name:'Search pages',exact:true}).evaluate(el=>el===document.activeElement),true);checks++;
+    if(viewport.width<1024){
+      await page.getByRole('button',{name:'Open navigation',exact:true}).click();const navigation=page.getByRole('dialog',{name:'Navigation',exact:true});await navigation.waitFor();
+      for(let n=0;n<35;n++)await page.keyboard.press('Tab');
+      assert.ok(await navigation.evaluate(el=>el.contains(document.activeElement)),'Tab stays within navigation');checks++;
+      await page.screenshot({path:`verification/frontend-navigation-${viewport.width}.png`,fullPage:true});
+      await page.keyboard.press('Escape');await navigation.waitFor({state:'hidden'});checks++;
+    }else{
+      await page.getByRole('button',{name:'Collapse navigation',exact:true}).click();assert.equal(await page.getByRole('navigation',{name:'Main navigation'}).count(),0);checks++;
+      await page.getByRole('button',{name:'Expand navigation',exact:true}).click();await page.getByRole('navigation',{name:'Main navigation'}).waitFor();checks++;
+    }
+
     assert.equal(await page.getByRole('heading',{level:1}).textContent(),'Evidence Reports');checks++;
     assert.equal(await page.title(),'ConversionX | Lead & Revenue Analytics');checks++;
     await page.getByLabel('From (UTC)',{exact:true}).fill('2026-08-01');await page.getByLabel('Through (UTC)',{exact:true}).fill('2026-08-31');
     await page.getByRole('button',{name:'Create snapshot-bound report'}).click();
     assert.equal(await page.getByLabel('Call Attempts',{exact:true}).count(),1);checks++;
+    fs.mkdirSync('verification',{recursive:true});
     const calls=page.getByTestId('metric-call_attempts').getByTestId('metric-value');await calls.waitFor();assert.equal(await calls.textContent(),'5');checks++;
     assert.equal(await page.getByTestId('metric-call_attempts').getByRole('heading').textContent(),'Call Attempts');checks++;
     assert.equal(await page.getByTestId('metric-collected_value').getByRole('heading').textContent(),'Collected Amount');checks++;
+    await page.getByTestId('metric-call_attempts').scrollIntoViewIfNeeded();
+    await page.screenshot({path:`verification/frontend-results-${viewport.width}.png`,fullPage:true});
     await page.getByTestId('metric-call_coverage').getByRole('button',{name:'Definition',exact:true}).click();
     await page.getByLabel('Metric definition').getByText('Delivered Episodes with a Subsequent Call / Successful Delivery Episodes × 100',{exact:false}).waitFor();checks++;
     assert.equal(await page.getByTestId('metric-collected_value').getByTestId('metric-value').textContent(),'ZAR 0.29');checks++;
@@ -66,9 +89,20 @@ try{
     assert.equal(await page.getByText('1,250%',{exact:true}).count(),0);checks++;
     await page.screenshot({path:`verification/naming-explorer-${viewport.width}.png`,fullPage:true});
     await page.goto('http://127.0.0.1:3187/call-performance');
+    await page.getByRole('button',{name:'Report filters',exact:true}).click();
+    const filterPanel=page.getByRole('region',{name:'Legacy report filters'});await filterPanel.waitFor();
+    const requestsBefore=requestCounts['/api/analytics/calls']||0;
+    await page.getByRole('button',{name:'Reload results',exact:true}).click();
+    await page.waitForFunction(()=>true);await page.waitForTimeout(250);
+    assert.ok(requestCounts['/api/analytics/calls']>requestsBefore,'Reload refetches the active report');checks++;
+    await page.getByRole('button',{name:'Report filters',exact:true}).click();await filterPanel.waitFor({state:'hidden'});checks++;
+
     await page.getByRole('heading',{name:/^One-Call Lead Share$/i}).waitFor();checks++;
     assert.equal(await page.getByRole('heading',{level:1}).textContent(),'Call Performance');checks++;
     assert.equal(await page.getByText('One-Call Resolution',{exact:true}).count(),0);checks++;
+    await page.getByRole('heading',{name:/^One-Call Lead Share$/i}).scrollIntoViewIfNeeded();
+    await page.screenshot({path:`verification/frontend-calls-${viewport.width}.png`,fullPage:true});
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));checks++;
     await page.getByRole('button',{name:'First-Dial Timing',exact:true}).click();
     await page.getByRole('columnheader',{name:/^First-Dial Weekday$/i}).waitFor();checks++;
     await page.getByRole('button',{name:'Vendor & Disposition Records',exact:true}).click();
@@ -83,6 +117,17 @@ try{
     await page.getByRole('rowheader',{name:/^0–5 Whole Minutes$/i}).waitFor();checks++;
     assert.equal(await page.getByText('1,250%',{exact:true}).count(),0);checks++;
     await page.screenshot({path:`verification/naming-timing-${viewport.width}.png`,fullPage:true});
+    await page.getByRole('button',{name:'Use compact table spacing',exact:true}).click();
+    assert.equal(await page.locator('.cx-app').getAttribute('data-density'),'compact');checks++;
+    await page.reload();await page.getByRole('heading',{name:/^Capture-to-Delivery Mean$/i}).waitFor();
+    assert.equal(await page.locator('.cx-app').getAttribute('data-density'),'compact');checks++;
+    await page.getByRole('button',{name:'Use comfortable table spacing',exact:true}).click();
+    await page.getByRole('button',{name:'Search pages',exact:true}).click();await page.getByRole('combobox',{name:'Search pages and navigation'}).fill('evidence');
+    await page.keyboard.press('Enter');await page.getByRole('heading',{name:'Evidence Reports',exact:true}).waitFor();checks++;
+    await page.goto('http://127.0.0.1:3187/page-that-does-not-exist');await page.getByRole('heading',{name:'Page not found',exact:true}).waitFor();checks++;
+    await page.getByRole('link',{name:'Open Evidence Reports',exact:true}).click();await page.getByRole('heading',{name:'Evidence Reports',exact:true}).waitFor();checks++;
+    await page.emulateMedia({reducedMotion:'reduce'});
+    assert.ok(await page.evaluate(()=>matchMedia('(prefers-reduced-motion: reduce)').matches));checks++;
     assert.deepEqual(errors,[]);checks++;await page.close();
   }
   fs.writeFileSync('verification/browser.json',JSON.stringify({checks,passed:checks,source:'synthetic API fixtures',liveWarehouseTested:false},null,2));console.log(`${checks} browser assertions passed on desktop and mobile using synthetic responses.`);

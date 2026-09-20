@@ -37,7 +37,7 @@ export function ScatterPlot({
       </div>
       
       <div className="flex-1 p-6" style={{ minHeight: height }}>
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={60}>
           <ScatterChart margin={{ top: 20, right: 30, bottom: 20, left: 20 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
             <XAxis 
