@@ -69,6 +69,7 @@ export async function verifyFrontendOptimisations(browser, base) {
         phone.value = 'true'; phone.dispatchEvent(new Event('change', { bubbles: true }));
       });
       await page.waitForURL(url => { const value = JSON.parse(url.searchParams.get('filters') || '{}'); return value.valid_idno?.value === false && value.phone_valid?.value === true; });
+      await page.waitForFunction(() => document.getElementById('legacy-valid_idno')?.value === 'false' && document.getElementById('legacy-phone_valid')?.value === 'true');
       assert.equal(await filters.getByRole('combobox', { name: 'Recorded National ID Validity', exact: true }).inputValue(), 'false'); checks++;
       assert.equal(await filters.getByRole('combobox', { name: 'Recorded Phone Validity', exact: true }).inputValue(), 'true'); checks++;
       failCalls = true;
