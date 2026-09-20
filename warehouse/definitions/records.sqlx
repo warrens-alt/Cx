@@ -1,0 +1,7 @@
+config { type: "table", tags: ["candidate"], dependOnDependencyAssertions: true }
+SELECT r.*
+FROM ${ref("raw_scope")} r
+JOIN ${ref("batch_scope")} b ON r.tenant_id=b.tenant_id AND r.batch_id=b.batch_id AND b.status='COMPLETE'
+JOIN ${ref("contract_scope")} c ON r.tenant_id=c.tenant_id AND r.source_id=c.source_id AND r.entity_kind=c.entity_kind AND r.contract_version=c.contract_version AND c.status='APPROVED'
+WHERE r.tenant_id='${dataform.projectConfig.vars.tenantId}' AND r.recorded_at <= TIMESTAMP('${dataform.projectConfig.vars.cutoff}')
+QUALIFY ROW_NUMBER() OVER(PARTITION BY r.tenant_id,r.entity_kind,r.entity_key ORDER BY r.revision DESC,r.recorded_at DESC,r.payload_hash) = 1

@@ -29,6 +29,7 @@ import {
   Circle
 } from 'lucide-react';
 
+const VersionedReports = React.lazy(() => import('./pages/VersionedReports'));
 const Overview = React.lazy(() => import('./pages/Overview'));
 const Insights = React.lazy(() => import('./pages/Insights'));
 const Explore = React.lazy(() => import('./pages/Explore'));
@@ -61,6 +62,7 @@ interface SidebarProps {
 }
 
 function Sidebar({ onCloseMobile, onOpenCommandPalette }: SidebarProps) {
+  const { clientConfig } = useClient();
   const location = useLocation();
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState('');
@@ -73,7 +75,8 @@ function Sidebar({ onCloseMobile, onOpenCommandPalette }: SidebarProps) {
     {
       title: 'OVERVIEW',
       items: [
-        { name: 'Executive Overview', path: '/overview', icon: LayoutDashboard },
+        { name: 'Evidence Reports', path: '/reports', icon: ShieldCheck },
+        { name: 'Legacy Executive Overview', path: '/overview', icon: LayoutDashboard },
         { name: 'Automated Insights', path: '/insights', icon: Sparkles },
         { name: 'Data Explorer', path: '/explore', icon: Compass }
       ]
@@ -237,12 +240,12 @@ function Sidebar({ onCloseMobile, onOpenCommandPalette }: SidebarProps) {
         <div className="flex items-center justify-between px-1 text-xs text-slate-400">
           <span className="flex items-center gap-2">
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              <span className="absolute inline-flex h-full w-full rounded-full bg-slate-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-slate-400"></span>
             </span>
-            <span className="text-[11px] font-medium text-slate-300">BigQuery Connected</span>
+            <span className="text-[11px] font-medium text-slate-300">Evidence status in report</span>
           </span>
-          <span className="font-mono text-[11px] text-slate-400">vw_leads</span>
+          <span className="font-mono text-[11px] text-slate-400">v2 / legacy</span>
         </div>
 
         {/* User Card */}
@@ -253,7 +256,7 @@ function Sidebar({ onCloseMobile, onOpenCommandPalette }: SidebarProps) {
             </div>
             <div className="flex flex-col">
               <span className="text-xs font-medium text-slate-200 leading-tight">Analyst Workspace</span>
-              <span className="text-[10px] text-slate-400 font-mono">dashboards-422710</span>
+              <span className="text-[10px] text-slate-400 font-mono">{clientConfig?.name || 'No workspace selected'}</span>
             </div>
           </div>
           <Link 
@@ -270,6 +273,12 @@ function Sidebar({ onCloseMobile, onOpenCommandPalette }: SidebarProps) {
   );
 }
 
+
+function ReportingChrome(props: { onOpenMobileMenu?: () => void; onOpenCommandPalette?: () => void }) {
+  const location = useLocation();
+  if (location.pathname === '/reports' || location.pathname === '/') return <div className="border-b bg-white p-3 flex gap-4 text-sm"><button className="lg:hidden underline" onClick={props.onOpenMobileMenu}>Menu</button><span>Evidence reports use their own explicit, snapshot-bound reporting scope.</span></div>;
+  return <><div role="note" className="p-3 bg-amber-50 text-amber-950 text-sm border-b"><strong>Legacy exploration — not independently reconciled.</strong> These screens do not use a pinned evidence-report execution. <Link to="/reports" className="underline">Open evidence reports</Link>.</div><GlobalFilter {...props} /></>;
+}
 export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -319,7 +328,7 @@ export default function App() {
 
             {/* Main Application Container */}
             <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-              <GlobalFilter 
+              <ReportingChrome 
                 onOpenMobileMenu={() => setMobileMenuOpen(true)}
                 onOpenCommandPalette={() => setCommandPaletteOpen(true)}
               />
@@ -334,7 +343,8 @@ export default function App() {
                   </div>
                 }>
                   <Routes>
-                    <Route path="/" element={<Navigate to="/overview" replace />} />
+                    <Route path="/" element={<Navigate to="/reports" replace />} />
+                    <Route path="/reports" element={<VersionedReports />} />
                     <Route path="/overview" element={<Overview />} />
                     <Route path="/insights" element={<Insights />} />
                     <Route path="/explore" element={<Explore />} />

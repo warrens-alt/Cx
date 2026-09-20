@@ -1,0 +1,8 @@
+dataformCoreVersion: "3.0.65"
+defaultProject: dashboards-422710
+defaultDataset: cx_candidate
+defaultAssertionDataset: cx_assertions
+vars:
+  tenantId: default_tenant
+  sourceDataset: cx_raw
+  cutoff: "1970-01-01T00:00:00.000Z"

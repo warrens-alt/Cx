@@ -1,0 +1,9 @@
+{
+  "name": "cx-verification-tools",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@dataform/cli": "3.0.65",
+    "playwright": "1.55.1"
+  }
+}

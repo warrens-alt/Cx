@@ -1,0 +1,46 @@
+{
+  "note": "Synthetic, hand-authored reference records. No production customer data. Expected results below are independent of the SQL compiler.",
+  "leads": [
+    {"entity_key":"L1","captured_at":"2026-08-01T00:00:00Z","source":"Paid","medium":"social"},
+    {"entity_key":"L2","captured_at":"2026-08-02T00:00:00Z","source":"Paid","medium":"search"},
+    {"entity_key":"L3","captured_at":"2026-08-03T00:00:00Z","source":"Organic","medium":"direct"}
+  ],
+  "deliveries": [
+    {"entity_key":"D1","lead_key":"L1","vendor":"Vendor A","attempted_at":"2026-08-01T00:04:00Z","delivered_at":"2026-08-01T00:05:00Z"},
+    {"entity_key":"D2","lead_key":"L1","vendor":"Vendor B","attempted_at":"2026-08-01T00:09:00Z","delivered_at":"2026-08-01T00:10:00Z"},
+    {"entity_key":"D3","lead_key":"L2","vendor":"Vendor A","attempted_at":"2026-08-02T00:04:00Z","delivered_at":"2026-08-02T00:05:00Z"},
+    {"entity_key":"D4","lead_key":"L3","vendor":"Vendor A","attempted_at":"2026-08-03T00:04:00Z","delivered_at":null}
+  ],
+  "calls": [
+    {"entity_key":"C1","delivery_key":"D1","event_at":"2026-08-01T00:06:00Z"},
+    {"entity_key":"C2","delivery_key":"D1","event_at":"2026-08-01T00:07:00Z"},
+    {"entity_key":"C3","delivery_key":"D1","event_at":"2026-08-01T00:08:00Z"},
+    {"entity_key":"C4","delivery_key":"D2","event_at":"2026-08-01T00:11:00Z"},
+    {"entity_key":"C5","delivery_key":"D3","event_at":"2026-08-02T01:00:00Z"}
+  ],
+  "sales": [
+    {"entity_key":"S1","delivery_key":"D2","event_at":"2026-08-20T00:00:00Z"},
+    {"entity_key":"S2","delivery_key":"D3","event_at":"2026-08-02T02:00:00Z"}
+  ],
+  "activations": [
+    {"entity_key":"A1","sale_key":"S1","event_at":"2026-09-05T00:00:00Z"},
+    {"entity_key":"A2","sale_key":"S1","event_at":"2026-09-06T00:00:00Z"}
+  ],
+  "commercial": [
+    {"entity_key":"F1","sale_key":"S1","event_at":"2026-08-20T00:00:00Z","stage":"expected","amount_delta":"100.10","currency":"ZAR","agreement_version":"fixture-v1"},
+    {"entity_key":"F2","sale_key":"S1","event_at":"2026-08-21T00:00:00Z","stage":"expected","amount_delta":"-0.10","currency":"ZAR","agreement_version":"fixture-v1"},
+    {"entity_key":"F3","sale_key":"S1","event_at":"2026-09-06T00:00:00Z","stage":"approved","amount_delta":"90.01","currency":"ZAR","agreement_version":"fixture-v1"},
+    {"entity_key":"F4","sale_key":"S1","event_at":"2026-09-07T00:00:00Z","stage":"invoiced","amount_delta":"90.01","currency":"ZAR","agreement_version":"fixture-v1"},
+    {"entity_key":"F5","sale_key":"S1","event_at":"2026-09-08T00:00:00Z","stage":"collected","amount_delta":"0.10","currency":"ZAR","agreement_version":"fixture-v1"},
+    {"entity_key":"F6","sale_key":"S1","event_at":"2026-09-09T00:00:00Z","stage":"collected","amount_delta":"0.20","currency":"ZAR","agreement_version":"fixture-v1"},
+    {"entity_key":"F7","sale_key":"S1","event_at":"2026-09-10T00:00:00Z","stage":"collected","amount_delta":"-0.01","currency":"ZAR","agreement_version":"fixture-v1"},
+    {"entity_key":"F8","sale_key":"S2","event_at":"2026-08-03T00:00:00Z","stage":"expected","amount_delta":"50","currency":"ZAR","agreement_version":"fixture-v1"},
+    {"entity_key":"F9","sale_key":"S2","event_at":"2026-08-03T00:00:00Z","stage":"expected","amount_delta":"999","currency":"USD","agreement_version":"fixture-v1"}
+  ],
+  "expected": {
+    "all": {"fetched_leads":"3","delivered_episodes":"3","call_attempts":"5","called_episodes":"3","call_coverage":"100","sale_events":"2","activation_events":"2","sale_activation_rate":"50","expected_value":"150","approved_value":"90.01","invoiced_value":"90.01","collected_value":"0.29"},
+    "vendorA": {"fetched_leads":"3","delivered_episodes":"2","call_attempts":"4","called_episodes":"2","call_coverage":"100","sale_events":"1","activation_events":"0","sale_activation_rate":"0","expected_value":"50","approved_value":"0","invoiced_value":"0","collected_value":"0"},
+    "vendorB": {"fetched_leads":"1","delivered_episodes":"1","call_attempts":"1","called_episodes":"1","call_coverage":"100","sale_events":"1","activation_events":"2","sale_activation_rate":"100","expected_value":"100","approved_value":"90.01","invoiced_value":"90.01","collected_value":"0.29"},
+    "organic": {"fetched_leads":"1","delivered_episodes":"0","call_attempts":"0","called_episodes":"0","call_coverage":null,"sale_events":"0","activation_events":"0","sale_activation_rate":null,"expected_value":"0","approved_value":"0","invoiced_value":"0","collected_value":"0"}
+  }
+}

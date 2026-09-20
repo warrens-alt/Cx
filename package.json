@@ -6,10 +6,15 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build --outDir dist/client && esbuild server.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=dist/server/server.mjs",
-    "start": "node dist/server/server.mjs",
+    "start": "NODE_ENV=production node dist/server/server.mjs",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "tsx --test tests/*.test.ts",
+    "verify": "npm run lint && npm test && npm run build",
+    "warehouse:bootstrap": "tsx scripts/bootstrap-warehouse.ts",
+    "warehouse:ingest": "tsx scripts/ingest-canonical.ts",
+    "warehouse:publish": "tsx scripts/publish-release.ts",
+    "warehouse:test": "tsx scripts/warehouse-reference.ts"
   },
   "dependencies": {
     "@google-cloud/bigquery": "^8.3.1",

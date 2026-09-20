@@ -13,7 +13,7 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -22,7 +22,7 @@ jobs:
         shell: bash
         run: |
           paths=()
-          for p in src server scripts tests contracts warehouse server.ts package.json package-lock.json tsconfig.json vite.config.ts index.html README.md .env.example .github; do
+          for p in src server scripts tests contracts warehouse tooling docs server.ts package.json package-lock.json tsconfig.json vite.config.ts index.html README.md .env.example .github .gitignore; do
             if git cat-file -e "HEAD:$p" 2>/dev/null; then paths+=("$p"); fi
           done
           git archive --format=tar.gz --output=application-source.tar.gz HEAD -- "${paths[@]}"
@@ -36,7 +36,27 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      - run: npm ci --ignore-scripts
-      - run: npm run lint
-      - run: npm test
-      - run: npm run build
+      - run: npm ci --ignore-scripts --no-audit
+      - run: node scripts/engine-stamp.cjs --check
+      - run: npm run verify
+      - name: Install pinned verification tools
+        run: npm install --prefix tooling --ignore-scripts --no-audit
+      - name: Compile warehouse and verify release gates
+        run: |
+          mkdir -p verification
+          tooling/node_modules/.bin/dataform install warehouse
+          tooling/node_modules/.bin/dataform compile warehouse --json > verification/dataform-graph.json
+          node scripts/check-dataform-graph.cjs verification/dataform-graph.json
+      - name: Browser checks with synthetic fixtures
+        run: |
+          tooling/node_modules/.bin/playwright install --with-deps chromium
+          node tooling/browser/smoke.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-${{ github.sha }}
+          path: |
+            verification/
+            tooling/package-lock.json
+          retention-days: 7
+          if-no-files-found: warn

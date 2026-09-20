@@ -1,3 +1,11 @@
+# Evidence-reporting rebuild
+
+The new default `/reports` page uses independently versioned metrics and read-only BigQuery snapshots. It never falls back to legacy calculations when a release is missing. See `docs/ACCURACY_V2.md` for the implemented scope, separate source/financial approvals and setup commands. Existing screens remain labelled unverified exploration. This change does not certify source data or provision cloud infrastructure.
+
+`npm run verify` runs type checking, implementation tests and the production build. CI also compiles the Dataform graph and runs desktop/mobile browser tests against explicitly synthetic responses.
+
+---
+
 # ConversionX
 
 React and Express reporting application backed by configured Google BigQuery sources.

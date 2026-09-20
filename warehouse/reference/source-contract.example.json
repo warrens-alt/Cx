@@ -1,0 +1,14 @@
+{
+  "tenant_id": "default_tenant",
+  "source_id": "REPLACE_WITH_APPROVED_SOURCE_NAMESPACE",
+  "entity_kind": "leads",
+  "contract_version": "1.0.0",
+  "status": "DRAFT",
+  "owner": "",
+  "approval_reference": "",
+  "record_semantics": "versioned_entity",
+  "revision_policy": "source_supplied_monotonic_integer",
+  "timezone": "explicit_offset",
+  "identity_policy": "namespace_and_source_record_id",
+  "notes": "Template only. Do not approve by default. Cumulative dialler counters cannot be imported as call_attempt events."
+}
