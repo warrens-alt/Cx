@@ -1,4 +1,4 @@
-config { type: "table", tags: ["candidate"], dependOnDependencyAssertions: true }
+config { type: "table", tags: ["candidate"], dependOnDependencyAssertions: false }
 SELECT r.*
 FROM ${ref("raw_scope")} r
 JOIN ${ref("batch_scope")} b ON r.tenant_id=b.tenant_id AND r.batch_id=b.batch_id AND b.status='COMPLETE'

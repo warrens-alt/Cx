@@ -1,0 +1,15 @@
+config {
+  type: "operations",
+  tags: ["release_gate"],
+  dependencies: [
+    "revision_conflicts", "batch_accounting", "fact_uniqueness", "relationships",
+    "chronology", "amounts", "raw_fact_counts", "field_reconciliation",
+    {name: "fact_leads", includeDependentAssertions: true},
+    {name: "fact_deliveries", includeDependentAssertions: true},
+    {name: "fact_calls", includeDependentAssertions: true},
+    {name: "fact_sales", includeDependentAssertions: true},
+    {name: "fact_activations", includeDependentAssertions: true},
+    {name: "fact_commercial", includeDependentAssertions: true}
+  ]
+}
+SELECT "All explicit assertions passed. The publisher must still freeze and independently validate snapshots." AS release_gate

@@ -1,7 +1,7 @@
 const schema = require('../includes/schema');
 for (const [kind, columns] of Object.entries(schema.fields)) {
   publish('fact_' + kind, {
-    type: 'table', tags: ['candidate', 'fact'], dependOnDependencyAssertions: true,
+    type: 'table', tags: ['candidate', 'fact'], dependOnDependencyAssertions: false,
     assertions: {
       uniqueKeys: [['tenant_id', 'entity_key']],
       nonNull: ['tenant_id', 'entity_key', 'source_record_id', 'source_id', 'batch_id', 'recorded_at', ...Object.keys(columns).filter(k => !schema.optional[kind].includes(k))],

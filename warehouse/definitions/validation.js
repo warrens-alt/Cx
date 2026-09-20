@@ -32,6 +32,3 @@ assert('amounts').query(ctx => `SELECT entity_key FROM ${ctx.ref('fact_commercia
   OR stage NOT IN ('expected','approved','invoiced','collected') OR stage IS NULL OR NULLIF(agreement_version,'') IS NULL`);
 assert('raw_fact_counts').query(ctx => kinds.map(kind => `SELECT '${kind}' AS fact FROM (SELECT COUNT(DISTINCT entity_key) AS n FROM ${ctx.ref('raw_scope')} r
   WHERE ${scoped('r')} AND entity_kind='${kind}') a CROSS JOIN (SELECT COUNT(*) AS n FROM ${ctx.ref('fact_'+kind)}) b WHERE a.n!=b.n`).join(' UNION ALL '));
-// Explicit publication dependency: a successful table build is not a successful validation run.
-operate('ready_to_snapshot', { dependencies: ['revision_conflicts','batch_accounting','fact_uniqueness','relationships','chronology','amounts','raw_fact_counts','field_reconciliation'], dependOnDependencyAssertions: true, tags: ['release_gate'] })
-  .queries('SELECT "Assertions passed; a separate publisher must create and verify immutable snapshots." AS release_gate');
