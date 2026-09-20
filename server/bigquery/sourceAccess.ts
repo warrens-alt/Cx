@@ -12,6 +12,7 @@ export interface SourceAccess {
 export class BigQuerySourceAccess implements SourceAccess {
   private bq:BigQuery;
   constructor(private readonly client:TenantConfiguration) {
+    if(client.dataSourceMode!=='separate')throw new RequestError('Shared-table source access requires verified row-level isolation',503);
     this.bq=new BigQuery({projectId:client.bigQueryProject,credentials:process.env.BIGQUERY_CREDENTIALS?JSON.parse(process.env.BIGQUERY_CREDENTIALS):undefined});
   }
   private allowed(table:string){

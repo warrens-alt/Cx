@@ -68,6 +68,7 @@ export async function getSourceMetrics(roleText:string,input:QueryScope,access:S
   });
   return {role,table,dateBasis:SOURCE_DEFINITIONS[role].dateMeaning,dateField:compiled.dateField,timezone:'UTC',timezoneVerified:false,
     scope:validateScope(input),metrics:format(result.rows.find(r=>r.is_total===true)!),groups:result.rows.filter(r=>r.is_total!==true).map(r=>({group:r.group_key,metrics:format(r)})),
+    dateCoverage:'NOT_MEASURED',populationNote:'Only records with a usable timestamp inside the selected source-date window are included. Records with missing or invalid date values cannot be assigned to that period; their source-wide coverage is not measured here.',
     rowGrain:'physical_source_row',truncated:false,queryJobId:result.jobId,referencedTables:result.referencedTables,bytesProcessed:result.bytesProcessed,
     generatedAt:new Date().toISOString(),validationStatus:'NOT_INDEPENDENTLY_RECONCILED',warning:SOURCE_DEFINITIONS[role].warning};
 }
