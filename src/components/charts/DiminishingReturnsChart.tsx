@@ -59,7 +59,7 @@ export function DiminishingReturnsChart({
       />
 
       <div style={{ height, width: '100%' }}>
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={60}>
           <ComposedChart data={data} margin={{ top: 20, right: 25, left: -5, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
             

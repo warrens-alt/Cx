@@ -1,6 +1,6 @@
 import React from 'react';
 import { formatChartAxis } from '../../lib/formatters';
-import { useState } from 'react';
+import { useId } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { ChartToolbar } from './ChartToolbar';
 
@@ -40,6 +40,7 @@ export function TrendChart({
   auditGrain
 }: TrendChartProps) {
   
+  const gradientId = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const formatValue = (val: number) => {
     return `${valuePrefix}${val.toLocaleString(undefined, { maximumFractionDigits: 1 })}${valueSuffix}`;
   };
@@ -61,10 +62,10 @@ export function TrendChart({
       </ChartToolbar>
       
       <div style={{ height, width: '100%' }}>
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={60}>
           <AreaChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
             <defs>
-              <linearGradient id={`color-${currentKey}`} x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#0D9488" stopOpacity={0.18}/>
                 <stop offset="95%" stopColor="#0D9488" stopOpacity={0}/>
               </linearGradient>
@@ -112,7 +113,7 @@ export function TrendChart({
               stroke="#0D9488" 
               strokeWidth={2.5}
               fillOpacity={1} 
-              fill={`url(#color-${currentKey})`} 
+              fill={`url(#${gradientId})`} 
               name="Current"
             />
           </AreaChart>
