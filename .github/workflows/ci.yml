@@ -24,3 +24,4 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts --no-audit
       - run: npm run verify
+      - run: node scripts/smoke-production.mjs

@@ -26,8 +26,8 @@ export default function Overview() {
   return <PageShell><PageHeader title="Executive Overview" category="Lead-to-Revenue Intelligence" description="Vendor-attributed outcomes for the selected lead-capture cohort." />
     <div className="space-y-6">
       <EvidenceNotice>Source timezone, identifier joins and revenue recognition still require warehouse sign-off. <Link className="underline" to={{ pathname: '/validation', search: location.search }}>Review validation evidence</Link>.</EvidenceNotice>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">{cards.map(([key, title, metric]) => <KpiCard key={key} title={title} value={data[key] ?? 'Unavailable'} prefix={key === 'revenue' ? prefix : ''} metadata={metadata}
-        onAnalyse={() => setAnalyseMetric({ id: metric, label: title })} onWhyChanged={() => setAnalyseMetric({ id: metric, label: title })} />)}</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">{cards.map(([key, title, metric]) => <div key={key} className="h-full"><KpiCard title={title} subtitle="No period comparison supplied" value={data[key] ?? 'Unavailable'} prefix={key === 'revenue' ? prefix : ''} metadata={metadata}
+        onAnalyse={() => setAnalyseMetric({ id: metric, label: title })} onWhyChanged={() => setAnalyseMetric({ id: metric, label: title })} /></div>)}</div>
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <KpiCard title="Fetched Lead to Sale Rate" value={data.leadToSaleRate ?? 'Unavailable'} suffix={data.leadToSaleRate == null ? '' : '%'} subtitle="Leads with a sale / fetched leads" />
         <KpiCard title="Called Lead to Sale Rate" value={data.saleRate ?? 'Unavailable'} suffix={data.saleRate == null ? '' : '%'} subtitle="Leads with a sale / called leads" />

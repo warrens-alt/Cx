@@ -73,7 +73,7 @@ export async function createApp() {
     const clientPath = path.resolve(process.cwd(), 'dist/client');
     app.use(express.static(clientPath, { dotfiles: 'deny', index: false }));
     app.get('*', (req, res, next) => {
-      if (path.extname(req.path)) return next(new RequestError('Asset not found', 404));
+      if (path.extname(req.path) || req.path.split('/').some(segment => segment.startsWith('.'))) return next(new RequestError('Asset not found', 404));
       res.sendFile(path.join(clientPath, 'index.html'));
     });
   } else {

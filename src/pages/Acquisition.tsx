@@ -22,7 +22,7 @@ export default function Acquisition() {
         <KpiCard title="Impressions" value={s.impressions ?? 'Unavailable'} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">{[['Delivered Leads', 'delivered', 'cplDelivered'], ['Called Leads', 'called', 'cplDialed'], ['Leads with a Sale', 'sales', 'cpSale'], ['Activated Leads', 'activations', 'cpsActivated']].map(([title, count, cost]) =>
-        <KpiCard key={count} title={title} value={s[count] ?? 'Unavailable'} subtitle={`Cost per outcome: ${s[cost] == null ? 'Unavailable' : prefix + displayNumber(s[cost], 2)}`} />)}</div>
+        <div key={count} className="h-full"><KpiCard title={title} value={s[count] ?? 'Unavailable'} subtitle={`Cost per outcome: ${s[cost] == null ? 'Unavailable' : prefix + displayNumber(s[cost], 2)}`} /></div>)}</div>
       {s.spend !== null && chart.size > 0 && <TrendChart title="Measured Spend by Media Date" subtitle="Media spend uses media event date, not lead capture date." data={[...chart.values()]} xAxisKey="date" currentKey="spend" valuePrefix={prefix} />}
       <section className="enterprise-card p-5"><h2 className="font-semibold">Channel-Level Media Performance</h2><p className="text-sm mb-4">Campaign-level detail is unavailable in the mapped query. No campaign totals are inferred.</p>
         <div className="overflow-x-auto"><table className="enterprise-table w-full"><thead><tr>{['Channel', 'Spend', 'Impressions', 'Clicks', 'Platform Leads'].map(h => <th key={h} scope="col">{h}</th>)}</tr></thead><tbody>
