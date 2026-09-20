@@ -1,553 +1,135 @@
-import { exportData } from './bigquery/export';
-
-import { Router } from "express";
-import { 
-  getOverviewStats, 
-  getFunnelStats, 
-  getDataHealthStats, 
-  getLeads, getLeadTimeline, getHlcVendorCoverage,
-  getCallPerformanceStats,
-  getSourcesStats,
-  getQualityStats,
-  getSpeedToLeadStats,
-  getCohortStats,
-  getTimeseriesStats,
-  getFilterOptions,
-  getAcquisitionStats,
-  getOutcomesStats,
-  getRoutingIntelligenceStats,
-  getConsumerReentryStats,
-  getOutcomeQualityStats,
-  getRevettingStats,
-  getDataTrustStats,
-  getMultiVendorStats,
-  getReconciliationValidation
-} from './bigquery/queries';
+import { Router, type Request, type Response, type NextFunction } from 'express';
+import * as legacy from './bigquery/queries';
+import { getOverviewStats, getQualityStats, getCohortStats, getLeadTimeline, validationUnavailable } from './bigquery/reporting';
 import { executeDynamicQuery, generateDriverInsights } from './bigquery/semantic_engine';
-import { checkBigQueryHealth } from './bigquery/client';
 import { getClientConfig, getAllClients, validateEnvironment } from './bigquery/config';
+import { checkBigQueryHealth } from './bigquery/client';
 import { discoverData } from './bigquery/discovery';
 import { CANONICAL_PARAMETERS } from './bigquery/registry';
-import { GoogleGenAI } from '@google/genai';
+import { exportData } from './bigquery/export';
+import { validateScope, validateFilters, scalarString, boundedInteger, RequestError, type QueryScope } from './bigquery/filters';
+import { withAnalyticsScope } from './analyticsContext';
+import { requireTenant } from './securityPolicy';
+import { requireAdmin } from './security';
 import { cacheResponse } from './cacheMiddleware';
+import { MODEL_VERSION } from './bigquery/integrity';
 
 export const analyticsRouter = Router();
-
-analyticsRouter.get('/clients', (req, res) => {
-  try {
-    const clients = getAllClients().map(c => ({
-      id: c.id,
-      name: c.name,
-      currency: c.currency,
-      timezone: c.timezone,
-      capabilities: c.capabilities
-    }));
-    res.json({ success: true, data: clients });
-  } catch(error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-analyticsRouter.get('/discovery', async (req, res) => {
-  try {
-    const clientId = (req.query.clientId as string) || 'default';
-    const client = getClientConfig(clientId);
-    const data = await discoverData(client);
-    res.json({ success: true, data });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
 validateEnvironment();
-
-
-function getStandardParams(req: any) {
-  const clientId = req.query.clientId || req.body?.clientId || 'default';
-  const startDate = req.query.startDate || req.body?.startDate || req.body?.dateRange?.start;
-  const endDate = req.query.endDate || req.body?.endDate || req.body?.dateRange?.end;
-  const filters = req.query.filters || req.body?.filters;
-  let parsedFilters: any = {};
-  if (filters) {
-    try { 
-      parsedFilters = typeof filters === 'string' ? JSON.parse(filters) : filters; 
-    } catch(e) {}
+function scopeFrom(req: Request): QueryScope {
+  const input = req.method === 'GET' ? req.query : req.body || {};
+  const filters = validateFilters(input.filters);
+  for (const key of ['source', 'medium', 'vendor']) {
+    const value = scalarString(input[key], key, 500);
+    if (value && !filters[key]) filters[key] = { operator: 'in', values: value.split(',').map(v => v.trim()).filter(Boolean) };
   }
-  // also map old source/medium if present as fallback
-  const source = req.query.source || req.body?.source;
-  const vendor = req.query.vendor || req.body?.vendor;
-  const medium = req.query.medium || req.body?.medium;
-  if (source && !parsedFilters.source) parsedFilters.source = { operator: 'in', values: typeof source === 'string' ? source.split(',') : source };
-  if (vendor && !parsedFilters.vendor) parsedFilters.vendor = { operator: 'in', values: typeof vendor === 'string' ? vendor.split(',') : vendor };
-  if (medium && !parsedFilters.medium) parsedFilters.medium = { operator: 'in', values: typeof medium === 'string' ? medium.split(',') : medium };
-
-  return { clientId, startDate, endDate, filters: parsedFilters };
+  // Old report functions implement vendor/partner cohort predicates for IN, not equality.
+  for (const key of ['vendor', 'partner', 'ror_partner']) {
+    const f = filters[key];
+    if (f?.operator === 'equals') filters[key] = { operator: 'in', values: [f.value!] };
+    else if (f && f.operator !== 'in') throw new RequestError(`Use an inclusion filter for ${key}`);
+  }
+  return validateScope({ clientId: input.clientId, startDate: input.startDate || input.dateRange?.start,
+    endDate: input.endDate || input.dateRange?.end, filters });
 }
-
-function buildResponse(req: any, data: any, viewName: string) {
-  const clientId = req.query.clientId || 'default';
-  const client = getClientConfig(clientId as string);
-  return {
-    success: true,
-    metadata: {
-      clientId,
-      clientName: client.name,
-      dataAsOf: new Date().toISOString(),
-      source: {
-        type: 'bigquery',
-        project: client.bigQueryProject,
-        dataset: client.bigQueryDatasets[0],
-        analyticsView: viewName
-      }
-    },
-    data
-  };
+analyticsRouter.use((req, res, next) => {
+  try {
+    if (!res.locals.principal) throw new RequestError('Authentication required', 401);
+    if (req.path === '/clients') return next();
+    const scope = scopeFrom(req), client = getClientConfig(scope.clientId);
+    scope.clientId = client.id;
+    requireTenant(res.locals.principal, client.id);
+    res.locals.scope = scope;
+    withAnalyticsScope(scope, () => next());
+  } catch (error) { next(error); }
+});
+function metadata(res: Response, view: string) {
+  const scope = res.locals.scope as QueryScope, client = getClientConfig(scope.clientId);
+  return { clientId: client.id, clientName: client.name, currency: client.currency, generatedAt: new Date().toISOString(),
+    dataAsOf: null, validationStatus: 'NOT_VERIFIED', modelVersion: MODEL_VERSION, appliedFilters: scope.filters,
+    startDate: scope.startDate ?? null, endDate: scope.endDate ?? null, dateBasis: 'lead_capture_cohort', attribution: 'selected_vendor_transactions',
+    source: { type: 'bigquery', project: client.bigQueryProject, dataset: client.bigQueryDatasets[0], analyticsView: view } };
 }
-
-
-
-analyticsRouter.get('/export', async (req, res) => {
-  try {
-    const params: any = {
-      clientId: req.query.clientId || 'default',
-      startDate: req.query.startDate,
-      endDate: req.query.endDate,
-      filters: req.query.filters ? JSON.parse(req.query.filters as string) : undefined,
-      grain: req.query.grain || 'lead',
-      format: req.query.format || 'csv',
-      metrics: req.query.metrics ? (req.query.metrics as string).split(',') : undefined,
-      segment: req.query.segment,
-      chartBucket: req.query.chartBucket
-    };
-    
-    // Add extra params from query to filters if they exist (for drilling down into charts)
-    if (params.segment && params.chartBucket) {
-       if(!params.filters) params.filters = {};
-       params.filters[params.segment] = { operator: 'in', values: [params.chartBucket] };
+function asyncRoute(handler: (req: Request, res: Response) => Promise<unknown> | unknown) {
+  return (req: Request, res: Response, next: NextFunction) => Promise.resolve().then(() => handler(req, res)).catch(next);
+}
+analyticsRouter.get('/clients', (_req, res) => {
+  const allowed = res.locals.principal.tenants as string[];
+  res.json({ success: true, data: getAllClients().filter(c => allowed.includes(c.id)).map(c => ({ id: c.id, name: c.name, currency: c.currency, timezone: c.timezone, capabilities: c.capabilities })) });
+});
+analyticsRouter.get('/health', asyncRoute(async (_req, res) => {
+  const client = getClientConfig(res.locals.scope.clientId);
+  const table = client.semanticMappings.tables.leads.split('.');
+  const health = await checkBigQueryHealth(table[0], table[1], table[2]);
+  res.json({ success: true, health, data: health, client: client.name });
+}));
+analyticsRouter.get('/discovery', requireAdmin, asyncRoute(async (_req, res) => res.json({ success: true, data: await discoverData(getClientConfig(res.locals.scope.clientId)) })));
+analyticsRouter.get('/validation', requireAdmin, (_req, res) => res.json({ success: true, metadata: metadata(res, 'not_verified'), data: validationUnavailable() }));
+analyticsRouter.get('/parameter-coverage', requireAdmin, (_req, res) => {
+  const mapped = CANONICAL_PARAMETERS.filter(p => p.status === 'MAPPED').length;
+  res.json({ success: true, data: { summary: { totalRequired: CANONICAL_PARAMETERS.length, mapped, populated: null,
+    unavailable: CANONICAL_PARAMETERS.length - mapped, sourceConflicts: null,
+    coveragePercent: CANONICAL_PARAMETERS.length ? 100 * mapped / CANONICAL_PARAMETERS.length : null,
+    populationStatus: 'NOT_VERIFIED' }, parameters: CANONICAL_PARAMETERS } });
+});
+const reports: [string[], (scope: QueryScope) => Promise<unknown>, boolean][] = [
+  [['overview'], getOverviewStats, false], [['funnel'], legacy.getFunnelStats, false], [['quality'], getQualityStats, false],
+  [['sources'], legacy.getSourcesStats, false], [['timeseries'], legacy.getTimeseriesStats, false],
+  [['data-quality'], legacy.getDataHealthStats, true], [['calls', 'call-performance'], legacy.getCallPerformanceStats, true],
+  [['speed-to-lead'], legacy.getSpeedToLeadStats, true], [['outcomes'], legacy.getOutcomesStats, true],
+  [['routing'], legacy.getRoutingIntelligenceStats, true], [['consumers'], legacy.getConsumerReentryStats, true],
+  [['outcomes-quality'], legacy.getOutcomeQualityStats, true], [['revetting'], legacy.getRevettingStats, true],
+  [['data-trust'], legacy.getDataTrustStats, true], [['multi-vendor'], legacy.getMultiVendorStats, false],
+  [['vendor-coverage', 'hlc-coverage'], legacy.getHlcVendorCoverage, true], [['filter-options'], legacy.getFilterOptions, true],
+];
+for (const [routes, query, mixedGrain] of reports) {
+  analyticsRouter.get(routes.map(r => `/${r}`), cacheResponse(120), asyncRoute(async (_req, res) => {
+    const scope = res.locals.scope as QueryScope;
+    if (mixedGrain && Object.keys(scope.filters || {}).some(k => !['source', 'vendor', 'medium'].includes(k))) {
+      throw new RequestError('This report supports date, source, vendor and medium filters. Advanced cross-grain filters require further validation.', 422);
     }
-    
-    const result = await exportData(params);
-    
-    // Audit Logging
-    console.log(JSON.stringify({
-      timestamp: new Date().toISOString(),
-      action: 'DATA_EXPORT',
-      client: params.clientId,
-      grain: params.grain,
-      format: params.format,
-      filters: params.filters
-    }));
-    
-    if (params.format === 'json') {
-      res.json({ success: true, data: result });
-    } else {
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename="${params.clientId}_${params.grain}_export_${new Date().toISOString().split('T')[0]}.csv"`);
-      res.send(result);
-    }
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-analyticsRouter.get('/health', async (req, res) => {
-  try {
-    const clientId = (req.query.clientId as string) || 'default';
-    const client = getClientConfig(clientId);
-    const health = await checkBigQueryHealth(client.bigQueryProject, client.bigQueryDatasets[0], client.semanticMappings.tables.leads.split('.').pop());
-    res.json({ success: true, health, client: client.name });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-analyticsRouter.post('/explain', async (req, res) => {
-  try {
-    const { metrics, viewName } = req.body;
-    
-    if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({ error: 'Gemini API Key is not configured on the server.' });
-    }
-    
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    
-    const prompt = `
-      You are an expert Revenue Operations Analyst.
-      Analyse the following aggregated metrics from the ${viewName} dashboard.
-      Provide a concise executive summary of the performance.
-      
-      CRITICAL RULES:
-      1. Differentiate FACT (what happened), OBSERVATION (where it happened), and HYPOTHESIS (why it might have happened).
-      2. Label any hypothesis explicitly (e.g., "Hypothesis: This may indicate...").
-      3. Do not invent any metrics or data not provided.
-      4. Keep it under 150 words.
-      5. Use professional, enterprise tone.
-      
-      DATA:
-      ${JSON.stringify(metrics, null, 2)}
-    `;
-    
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-    });
-    
-    res.json({ success: true, explanation: response.text });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-
-
-analyticsRouter.get('/filter-options', cacheResponse(300), async (req, res) => {
-  try {
-    const params = getStandardParams(req);
-    const options = await getFilterOptions(params);
-    res.json(buildResponse(req, options, 'vw_lead_lifecycle'));
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-analyticsRouter.get('/overview', cacheResponse(120), async (req, res) => {
-  try {
-    const params = getStandardParams(req);
-    const stats = await getOverviewStats(params);
-    res.json(buildResponse(req, stats, 'vw_daily_kpis'));
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-
-analyticsRouter.get('/funnel', cacheResponse(120), async (req, res) => {
-  try {
-    const params = getStandardParams(req);
-    const stats = await getFunnelStats(params);
-    res.json(buildResponse(req, stats, 'vw_conversion_funnel'));
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-
-analyticsRouter.get('/data-quality', cacheResponse(120), async (req, res) => {
-  try {
-    const params = getStandardParams(req);
-    const stats = await getDataHealthStats(params);
-    res.json(buildResponse(req, stats, 'vw_data_quality'));
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-
-analyticsRouter.get(['/calls', '/call-performance'], cacheResponse(120), async (req, res) => {
-  try {
-    const params = getStandardParams(req);
-    const stats = await getCallPerformanceStats(params);
-    res.json(buildResponse(req, stats, 'vw_call_performance'));
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-
-analyticsRouter.get('/sources', cacheResponse(120), async (req, res) => {
-  try {
-    const params = getStandardParams(req);
-    const stats = await getSourcesStats(params);
-    res.json(buildResponse(req, stats, 'vw_source_performance'));
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-
-analyticsRouter.get('/quality', cacheResponse(120), async (req, res) => {
-  try {
-    const params = getStandardParams(req);
-    const stats = await getQualityStats(params);
-    res.json(buildResponse(req, stats, 'vw_grade_performance'));
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-
-analyticsRouter.get('/speed-to-lead', cacheResponse(120), async (req, res) => {
-  try {
-    const params = getStandardParams(req);
-    const stats = await getSpeedToLeadStats(params);
-    res.json(buildResponse(req, stats, 'vw_speed_to_lead'));
-  } catch (error: any) {
-    console.error("SPEED TO LEAD ERROR:", error.message);
-    // We want the query!
-    console.error(error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-
-analyticsRouter.get('/cohorts', cacheResponse(120), async (req, res) => {
-  try {
-    const params = getStandardParams(req);
-    const stats = await getCohortStats({
-      ...params,
-      cohortType: req.query.cohortType as string,
-      metricType: req.query.metricType as string
-    });
-    res.json(buildResponse(req, stats, 'vw_cohort_performance'));
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-
-analyticsRouter.get('/timeseries', cacheResponse(120), async (req, res) => {
-  try {
-    const params = getStandardParams(req);
-    const stats = await getTimeseriesStats(params);
-    res.json(buildResponse(req, stats, 'vw_marketing_daily'));
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-
-analyticsRouter.get('/acquisition', cacheResponse(120), async (req, res) => {
-  try {
-    const params = getStandardParams(req);
-    const stats = await getAcquisitionStats(params);
-    res.json(buildResponse(req, stats, 'vw_marketing_daily'));
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-analyticsRouter.get('/outcomes', cacheResponse(120), async (req, res) => {
-  try {
-    const params = getStandardParams(req);
-    const stats = await getOutcomesStats(params);
-    res.json(buildResponse(req, stats, 'vw_lead_lifecycle'));
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-analyticsRouter.get('/parameter-coverage', cacheResponse(300), async (req, res) => {
-  try {
-    const totalRequired = 52;
-    const mapped = CANONICAL_PARAMETERS.filter(p => p.status === 'MAPPED').length;
-    const populated = mapped; 
-    const unavailable = totalRequired - mapped;
-    
-    res.json({
-      success: true,
-      data: {
-        summary: {
-          totalRequired,
-          mapped,
-          populated,
-          unavailable,
-          sourceConflicts: 2, 
-          coveragePercent: ((mapped / totalRequired) * 100).toFixed(1)
-        },
-        parameters: CANONICAL_PARAMETERS
-      }
-    });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-analyticsRouter.get('/leads', cacheResponse(60), async (req, res) => {
-  try {
-    const params = getStandardParams(req);
-    const { limit = 100, offset = 0 } = req.query as any;
-    const leads = await getLeads({ ...params, limit: parseInt(limit, 10), offset: parseInt(offset, 10) });
-    res.json(buildResponse(req, leads, 'vw_lead_lifecycle'));
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-analyticsRouter.get('/lead-timeline/:leadId', cacheResponse(120), async (req, res) => {
-  try {
-    const params = getStandardParams(req);
-    const timeline = await getLeadTimeline({ ...params, leadId: req.params.leadId });
-    res.json(buildResponse(req, timeline, 'vw_lead_vendor_transactions'));
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-analyticsRouter.get('/routing', cacheResponse(120), async (req, res) => {
-  try {
-    const params = getStandardParams(req);
-    const stats = await getRoutingIntelligenceStats(params);
-    res.json(buildResponse(req, stats, 'vw_ror_events'));
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-analyticsRouter.get('/consumers', cacheResponse(120), async (req, res) => {
-  try {
-    const params = getStandardParams(req);
-    const stats = await getConsumerReentryStats(params);
-    res.json(buildResponse(req, stats, 'vw_consumers'));
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-analyticsRouter.get('/outcomes-quality', cacheResponse(120), async (req, res) => {
-  try {
-    const params = getStandardParams(req);
-    const stats = await getOutcomeQualityStats(params);
-    res.json(buildResponse(req, stats, 'vw_commercial_events'));
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-analyticsRouter.get('/revetting', cacheResponse(120), async (req, res) => {
-  try {
-    const params = getStandardParams(req);
-    const stats = await getRevettingStats(params);
-    res.json(buildResponse(req, stats, 'vw_leads'));
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-analyticsRouter.get('/data-trust', cacheResponse(120), async (req, res) => {
-  try {
-    const params = getStandardParams(req);
-    const stats = await getDataTrustStats(params);
-    res.json(buildResponse(req, stats, 'vw_lead_vendor_transactions'));
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-analyticsRouter.get('/multi-vendor', cacheResponse(120), async (req, res) => {
-  try {
-    const params = getStandardParams(req);
-    const stats = await getMultiVendorStats(params);
-    res.json(buildResponse(req, stats, 'vw_leads'));
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-analyticsRouter.get(['/vendor-coverage', '/hlc-coverage'], cacheResponse(120), async (req, res) => {
-  try {
-    const params = getStandardParams(req);
-    const stats = await getHlcVendorCoverage(params);
-    res.json(buildResponse(req, stats, 'vw_lead_vendor_transactions'));
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Automated Analytics Reconciliation Screen (Raw BQ vs Semantic Layer vs API vs UI)
-analyticsRouter.get('/validation', cacheResponse(120), async (req, res) => {
-  try {
-    const params = getStandardParams(req);
-    const validation = await getReconciliationValidation(params);
-    res.json(buildResponse(req, validation, 'vw_leads'));
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Driver Decomposition & "Why Did This Change?"
-analyticsRouter.all(['/insights', '/drivers'], cacheResponse(120), async (req, res) => {
-  try {
-    const params = getStandardParams(req);
-    const metric = (req.query.metric as string) || (req.body?.metric as string) || 'activations';
-    const dimension = (req.query.dimension as string) || (req.body?.dimension as string) || 'source';
-    const insights = await generateDriverInsights({
-      clientId: params.clientId,
-      metric,
-      dimension,
-      startDate: params.startDate,
-      endDate: params.endDate,
-      filters: params.filters
-    });
-    const client = getClientConfig(params.clientId);
-    res.json({
-      success: true,
-      data: insights.data,
-      metadata: {
-        clientId: params.clientId,
-        clientName: client.name,
-        currency: client.currency,
-        dataAsOf: new Date().toISOString(),
-        metric: insights.metric,
-        dimension: insights.dimension,
-        daysCompared: insights.daysCompared,
-        source: {
-          type: 'bigquery',
-          project: client.bigQueryProject,
-          dataset: client.bigQueryDatasets[0],
-          analyticsView: 'vw_leads'
-        }
-      }
-    });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Dynamic Query Exploration & Pivots
-analyticsRouter.all('/explore', cacheResponse(120), async (req, res) => {
-  try {
-    const params = getStandardParams(req);
-    const metric = (req.query.metric as string) || (req.body?.metric as string) || 'leads';
-    const dimension = (req.query.dimension as string) || (req.body?.dimension as string) || 'source';
-    const secondaryDimension = (req.query.secondaryDimension as string) || (req.body?.secondaryDimension as string) || undefined;
-    const result = await executeDynamicQuery({
-      clientId: params.clientId,
-      metric,
-      dimension,
-      secondaryDimension,
-      startDate: params.startDate,
-      endDate: params.endDate,
-      filters: params.filters || {}
-    });
-    const client = getClientConfig(params.clientId);
-    res.json({
-      success: true,
-      data: result.data,
-      metadata: {
-        clientId: params.clientId,
-        clientName: client.name,
-        currency: client.currency,
-        dataAsOf: new Date().toISOString(),
-        durationMs: result.metadata.durationMs,
-        bytesBilled: result.metadata.bytesBilled,
-        metric: result.metadata.metric,
-        dimension: result.metadata.dimension,
-        secondaryDimension: result.metadata.secondaryDimension,
-        source: {
-          type: 'bigquery',
-          project: client.bigQueryProject,
-          dataset: client.bigQueryDatasets[0],
-          analyticsView: 'vw_leads'
-        }
-      }
-    });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-['campaigns', 'grades'].forEach(route => {
-  analyticsRouter.get(`/${route}`, (req, res) => {
-    res.status(501).json({ success: false, error: 'Endpoint scaffolded, query logic pending' });
+    const data = await query(scope);
+    res.json({ success: true, metadata: metadata(res, routes[0]), data });
+  }));
+}
+analyticsRouter.get('/cohorts', cacheResponse(120), asyncRoute(async (req, res) => {
+  const data = await getCohortStats({ ...res.locals.scope, cohortType: scalarString(req.query.cohortType, 'cohortType'), metricType: scalarString(req.query.metricType, 'metricType') });
+  res.json({ success: true, metadata: metadata(res, 'event_time_cohorts'), data });
+}));
+analyticsRouter.get('/leads', cacheResponse(60), asyncRoute(async (req, res) => {
+  const data = await legacy.getLeads({ ...res.locals.scope, limit: boundedInteger(req.query.limit, 100, 1000, 1), offset: boundedInteger(req.query.offset, 0, 100000) });
+  res.json({ success: true, metadata: metadata(res, 'vw_leads'), data: data.map(row => ({ ...row, quality: 'Not independently verified' })) });
+}));
+analyticsRouter.get('/lead-timeline/:leadId', cacheResponse(120), asyncRoute(async (req, res) => {
+  const leadId = scalarString(req.params.leadId, 'leadId', 100);
+  const data = await getLeadTimeline({ ...res.locals.scope, leadId: leadId! });
+  res.json({ success: true, metadata: metadata(res, 'lead_timeline'), data });
+}));
+analyticsRouter.get('/export', asyncRoute(async (req, res) => {
+  const format = scalarString(req.query.format, 'format') || 'csv';
+  if (!['csv', 'json'].includes(format)) throw new RequestError('Unsupported export format');
+  if (req.query.segment || req.query.chartBucket || req.query.metrics) throw new RequestError('Use explicit supported filters for chart exports; unsupported drill-down parameters are not ignored', 422);
+  const result = await exportData({ ...res.locals.scope, grain: scalarString(req.query.grain, 'grain') || 'lead',
+    format, limit: boundedInteger(req.query.limit, 10000, 50000, 1) });
+  console.info(JSON.stringify({ action: 'DATA_EXPORT', subject: res.locals.principal.subject, clientId: res.locals.scope.clientId, rowCount: result.metadata.rowCount, truncated: result.metadata.truncated, modelVersion: MODEL_VERSION }));
+  if (format === 'json') return res.json({ success: true, metadata: result.metadata, data: result.rows });
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${res.locals.scope.clientId}_${result.metadata.grain}_export.csv"`);
+  res.setHeader('X-Export-Truncated', String(result.metadata.truncated));
+  res.setHeader('X-Export-Row-Count', String(result.metadata.rowCount));
+  res.send(result.csv);
+}));
+for (const route of ['/explore', '/insights', '/drivers']) {
+  const handler = asyncRoute(async (req, res) => {
+    const input = req.method === 'GET' ? req.query : req.body;
+    const metric = scalarString(input.metric, 'metric') || (route === '/explore' ? 'leads' : 'activations');
+    const dimension = scalarString(input.dimension, 'dimension') || 'source';
+    const args = { ...res.locals.scope, metric, dimension, secondaryDimension: scalarString(input.secondaryDimension, 'secondaryDimension') };
+    const result = route === '/explore' ? await executeDynamicQuery(args) : await generateDriverInsights(args);
+    res.json({ success: true, data: result.data, metadata: { ...metadata(res, route.slice(1)), ...result.metadata } });
   });
-});
+  analyticsRouter.get(route, cacheResponse(120), handler);
+  analyticsRouter.post(route, handler);
+}
+analyticsRouter.get('/acquisition', (_req, _res, next) => next(new RequestError('Acquisition economics are withheld until incurred-spend and campaign mappings are verified. Lead and outcome reporting remain available.', 422)));
+analyticsRouter.post('/explain', (_req, _res, next) => next(new RequestError('AI explanations are disabled pending verified input scope and metric definitions.', 422)));

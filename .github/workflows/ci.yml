@@ -1,19 +1,15 @@
 name: ConversionX CI
-
 on:
   push:
     branches: [main, 'fix/audit-integrity-20260920']
   pull_request:
     branches: [main]
   workflow_dispatch:
-
 permissions:
   contents: read
-
 concurrency:
   group: cx-ci-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -22,23 +18,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Archive tracked application sources (no credentials or repository history)
-        run: |
-          git archive --format=tar.gz --output=application-source.tar.gz HEAD -- src server server.ts package.json package-lock.json bun.lock tsconfig.json vite.config.ts index.html README.md .env.example
-      - uses: actions/upload-artifact@v4
-        with:
-          name: application-source-${{ github.sha }}
-          path: application-source.tar.gz
-          retention-days: 1
-          if-no-files-found: error
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install locked dependencies
-        run: npm ci --ignore-scripts
-      - name: Type check
-        run: npm run lint
-      - name: Regression tests
-        run: npm test --if-present
-      - name: Production build
-        run: npm run build
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
