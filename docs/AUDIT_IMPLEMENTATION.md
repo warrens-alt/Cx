@@ -44,10 +44,19 @@ Render desktop/mobile pages, test URL filters and navigation, error/retry/empty/
 
 ## Verification record for this implementation session
 
-- 35 implementation regression tests passed using a stubbed warehouse SDK transport.
-- Pure filter/integrity modules passed strict TypeScript checking.
-- 22 changed TypeScript/TSX files passed syntax transpilation at the time of the recorded check.
-- Full installed-dependency typecheck, production build, browser tests and live BigQuery validation were not executed in this environment.
-- The first GitHub Actions job failed before recording any steps; no runner was assigned. The underlying account/runner cause was not established.
+Executable revision: `0e69f3bbad2842e69964e1925aaadc1f9773552d`.
+GitHub Actions run: `35489228360` (PR run 7), completed successfully on 20 September 2026.
 
-No secrets, identity grants, production deployments, source warehouse tables or rate cards were changed. This branch should remain unmerged until the release acceptance gates and authentication configuration are complete. Rollback is a normal revert of the implementation commit after preserving the prior deployment configuration; do not force-push over newer work.
+- Locked installation (`npm ci --ignore-scripts --no-audit`) passed on Node.js 22.23.2.
+- Full configured application TypeScript check (`npm run lint`) passed with installed dependencies.
+- Strict pure filter/integrity check (`npm run check:pure`) passed.
+- All 35 implementation regression tests passed with a stubbed warehouse SDK transport.
+- Production frontend and backend build (`npm run build`) passed.
+- All seven production HTTP smoke checks passed against the built server: liveness, missing authentication configuration, missing signed identity, unsigned identity headers, protected raw-preview access, frontend serving, and denial of backend artifacts/dotfiles.
+- All 32 implementation files matched local Git blob hashes; the reconstructed tree was `acbfa31f1e1704aeddfe3585a0621c2b03456bb3` before this documentation update.
+
+The first CI attempt did not reach job steps. A later run exposed the existing package/lock mismatch for obsolete json2csv packages; removing the unused dependencies restored reproducible installs. Two new KPI-list typing errors were corrected before the successful run.
+
+These successful checks do not establish live warehouse accuracy, real IAP acceptance, authenticated production access, browser rendering, accessibility, dependency-vulnerability clearance or financial reconciliation. The regression suite checks generated SQL contracts but does not execute those statements in BigQuery. The HTTP smoke suite uses no cloud credentials and deliberately tests unauthorised/fail-closed paths, not an authenticated data query.
+
+No secrets, identity grants, production deployments, source warehouse tables or rate cards were changed. This branch should remain unmerged until the remaining release acceptance gates and authentication configuration are complete. Rollback is a normal revert of the implementation commits after preserving the prior deployment configuration; do not force-push over newer work.
