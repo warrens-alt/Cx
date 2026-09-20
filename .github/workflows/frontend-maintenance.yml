@@ -71,5 +71,5 @@ jobs:
           git apply --index candidate/change.patch
           test "$(git write-tree)" = "$(cat candidate/tree.txt)"
           git -c user.name='ConversionX maintenance' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'feat: refine responsive workspace, report visuals and frontend interactions'
-          git push origin HEAD:refs/heads/maintenance/frontend-verified-20260920
+          git push origin HEAD:refs/heads/maintenance/frontend-verified-${{ github.run_id }}
           echo "VERIFIED_COMMIT=$(git rev-parse HEAD)"
