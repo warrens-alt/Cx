@@ -1,0 +1,77 @@
+name: Naming alignment verification
+# One-time preparation branch. This file is excluded from the resulting application commit.
+on:
+  push:
+    branches: ['maintenance/naming-alignment-20260920']
+permissions:
+  contents: read
+concurrency:
+  group: naming-alignment-20260920
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Apply reviewed naming changes
+        run: |
+          git merge-base --is-ancestor 9628126171dddad29aec264d8c5ff881218e2979 HEAD
+          for file in .maintenance/naming/0*.py; do python "$file"; done
+          node scripts/engine-stamp.cjs
+          python .maintenance/naming/check.py
+      - run: npm ci --ignore-scripts --no-audit
+      - run: node scripts/engine-stamp.cjs --check
+      - run: npm run verify
+      - name: Compile warehouse and validate assertion dependencies
+        run: |
+          npm install --prefix tooling --ignore-scripts --no-audit
+          mkdir -p verification
+          tooling/node_modules/.bin/dataform compile warehouse --json > verification/dataform-graph.json
+          node scripts/check-dataform-graph.cjs verification/dataform-graph.json
+      - name: Desktop and mobile browser checks
+        run: |
+          tooling/node_modules/.bin/playwright install --with-deps chromium
+          node tooling/browser/smoke.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: naming-verification-${{ github.sha }}
+          path: verification/
+          retention-days: 7
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-naming-patch
+          path: candidate/
+          retention-days: 7
+          if-no-files-found: error
+  prepare-commit:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: '9628126171dddad29aec264d8c5ff881218e2979'
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-naming-patch
+          path: candidate
+      - name: Create the verified application commit without changing main
+        run: |
+          test "$(git rev-parse HEAD)" = '9628126171dddad29aec264d8c5ff881218e2979'
+          git apply --index candidate/change.patch
+          test "$(git write-tree)" = "$(cat candidate/tree.txt)"
+          git -c user.name='ConversionX maintenance' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'fix: align metric names, record units and percentage presentation'
+          git push origin HEAD:refs/heads/maintenance/naming-verified-20260920
+          echo "VERIFIED_COMMIT=$(git rev-parse HEAD)"
