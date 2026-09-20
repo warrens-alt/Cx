@@ -40,8 +40,8 @@ export default function Overview() {
         <Link to={{ pathname: '/validation', search: location.search }} className="underline text-sm">View validation status</Link>
       </section>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {primary.map(card => <KpiCard key={card.metric} title={card.label} value={card.value} prefix={card.metric === 'revenue' ? currency : ''} metadata={metadata}
-          onWhyChanged={() => setAnalyseMetric({ id: card.metric, label: card.label })} onAnalyse={() => setAnalyseMetric({ id: card.metric, label: card.label })} />)}
+        {primary.map(card => <div key={card.metric} className="h-full"><KpiCard title={card.label} value={card.value} prefix={card.metric === 'revenue' ? currency : ''} metadata={metadata}
+          onWhyChanged={() => setAnalyseMetric({ id: card.metric, label: card.label })} onAnalyse={() => setAnalyseMetric({ id: card.metric, label: card.label })} /></div>)}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KpiCard title="Fetched Lead-to-Sale Rate" value={data.leadToSaleRate} suffix="%" subtitle="Recorded sales / fetched leads" />
