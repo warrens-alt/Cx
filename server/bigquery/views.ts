@@ -1,3 +1,4 @@
+import { configuredRelation } from './sourceSql';
 import type { TenantConfiguration } from './config';
 import { getBaseSemanticLayer as originalLayer } from './views.base';
 import { vendorScope } from '../analyticsContext';
@@ -11,6 +12,12 @@ function replaceOnce(sql: string, from: string, to: string): string {
 export function getBaseSemanticLayer(client: TenantConfiguration): string {
   if (client.dataSourceMode === 'shared') throw new Error('Shared-table tenant isolation has not been verified');
   let sql = originalLayer(client);
+  // Replace legacy fallback text with the tenant-owned source or an explicit empty relation.
+  for (const role of ['calls','activations'] as const) {
+    const previous = client.semanticMappings.tables[role] || (role === 'calls' ? 'dashboards-422710.lead_ledger.lead_ledger_all_vicidial_insights' : 'dashboards-422710.lead_ledger.tbl_blc_activations');
+    sql = replaceOnce(sql, 'FROM `' + previous + '`', 'FROM ' + configuredRelation(client, role));
+  }
+  sql = replaceOnce(sql, '(t.hlc_vendor = v.vendor OR t.hlc_vendor IS NULL)', 't.hlc_vendor = v.vendor');
   sql = sql.replace(/PARSE_TIMESTAMP\('%Y-%m-%d %H:%M:%S', ([a-zA-Z_][a-zA-Z0-9_.]*)\)/g, (_match, column) => validTimestampSql(column));
   sql = replaceOnce(sql,
     'COALESCE(a.activation_date IS NOT NULL, t.hlc_activation_bool, t.activation_timestamp IS NOT NULL) as activation',

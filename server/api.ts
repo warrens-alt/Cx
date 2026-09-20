@@ -1,3 +1,4 @@
+import { createSourceRouter } from './bigquery/sourceRouter';
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import * as legacy from './bigquery/queries';
 import { getOverviewStats, getQualityStats, getCohortStats, getLeadTimeline, validationUnavailable } from './bigquery/reporting';
@@ -5,7 +6,8 @@ import { executeDynamicQuery, generateDriverInsights } from './bigquery/semantic
 import { getClientConfig, getAllClients, validateEnvironment } from './bigquery/config';
 import { checkBigQueryHealth } from './bigquery/client';
 import { discoverData } from './bigquery/discovery';
-import { CANONICAL_PARAMETERS } from './bigquery/registry';
+import { parameterCoverage } from './bigquery/parameterCoverage';
+import { metricTableLineage } from './bigquery/sourceCatalog';
 import { exportData } from './bigquery/export';
 import { validateScope, validateFilters, scalarString, boundedInteger, RequestError, type QueryScope } from './bigquery/filters';
 import { withAnalyticsScope } from './analyticsContext';
@@ -21,7 +23,12 @@ function scopeFrom(req: Request): QueryScope {
   const filters = validateFilters(input.filters);
   for (const key of ['source', 'medium', 'vendor']) {
     const value = scalarString(input[key], key, 500);
-    if (value && !filters[key]) filters[key] = { operator: 'in', values: value.split(',').map(v => v.trim()).filter(Boolean) };
+    if (value) {
+      const values=value.split(',').map(v=>v.trim()).filter(Boolean);
+      const existing=filters[key];
+      if(existing && (existing.operator!=='in'||JSON.stringify([...existing.values!].sort())!==JSON.stringify([...values].sort()))) throw new RequestError(`Conflicting ${key} filters`);
+      if(!existing)filters[key]={operator:'in',values};
+    }
   }
   // Old report functions implement vendor/partner cohort predicates for IN, not equality.
   for (const key of ['vendor', 'partner', 'ror_partner']) {
@@ -48,6 +55,7 @@ function metadata(res: Response, view: string) {
   return { clientId: client.id, clientName: client.name, currency: client.currency, generatedAt: new Date().toISOString(),
     dataAsOf: null, validationStatus: 'NOT_VERIFIED', modelVersion: MODEL_VERSION, appliedFilters: scope.filters,
     startDate: scope.startDate ?? null, endDate: scope.endDate ?? null, dateBasis: 'lead_capture_cohort', attribution: 'selected_vendor_transactions',
+    sourceDependencies: metricTableLineage(scope.clientId).legacy,
     source: { type: 'bigquery', project: client.bigQueryProject, dataset: client.bigQueryDatasets[0], analyticsView: view } };
 }
 function asyncRoute(handler: (req: Request, res: Response) => Promise<unknown> | unknown) {
@@ -65,13 +73,8 @@ analyticsRouter.get('/health', asyncRoute(async (_req, res) => {
 }));
 analyticsRouter.get('/discovery', requireAdmin, asyncRoute(async (_req, res) => res.json({ success: true, data: await discoverData(getClientConfig(res.locals.scope.clientId)) })));
 analyticsRouter.get('/validation', requireAdmin, (_req, res) => res.json({ success: true, metadata: metadata(res, 'not_verified'), data: validationUnavailable() }));
-analyticsRouter.get('/parameter-coverage', requireAdmin, (_req, res) => {
-  const mapped = CANONICAL_PARAMETERS.filter(p => p.status === 'MAPPED').length;
-  res.json({ success: true, data: { summary: { totalRequired: CANONICAL_PARAMETERS.length, mapped, populated: null,
-    unavailable: CANONICAL_PARAMETERS.length - mapped, sourceConflicts: null,
-    coveragePercent: CANONICAL_PARAMETERS.length ? 100 * mapped / CANONICAL_PARAMETERS.length : null,
-    populationStatus: 'NOT_VERIFIED' }, parameters: CANONICAL_PARAMETERS } });
-});
+analyticsRouter.get('/parameter-coverage', requireAdmin, asyncRoute(async (_req, res) => res.json({success:true,data:await parameterCoverage(res.locals.scope.clientId)})));
+analyticsRouter.use(createSourceRouter());
 const reports: [string[], (scope: QueryScope) => Promise<unknown>, boolean][] = [
   [['overview'], getOverviewStats, false], [['funnel'], legacy.getFunnelStats, false], [['quality'], getQualityStats, false],
   [['sources'], legacy.getSourcesStats, false], [['timeseries'], legacy.getTimeseriesStats, false],
@@ -131,5 +134,5 @@ for (const route of ['/explore', '/insights', '/drivers']) {
   analyticsRouter.get(route, cacheResponse(120), handler);
   analyticsRouter.post(route, handler);
 }
-analyticsRouter.get('/acquisition', (_req, _res, next) => next(new RequestError('Acquisition economics are withheld until incurred-spend and campaign mappings are verified. Lead and outcome reporting remain available.', 422)));
+
 analyticsRouter.post('/explain', (_req, _res, next) => next(new RequestError('AI explanations are disabled pending verified input scope and metric definitions.', 422)));

@@ -1,195 +1,39 @@
-import React, { useEffect, useState } from 'react';
-import { formatTableNumber } from '../lib/formatters';
-import { TableSkeleton } from '../components/Skeleton';
-import KpiCard from '../components/KpiCard';
+import React,{useEffect,useState} from 'react';
+import { PageShell } from '../components/PageShell';
 import PageHeader from '../components/PageHeader';
+import { DataState } from '../components/DataState';
+import { useAnalyticsData } from '../lib/useAnalyticsData';
+import { useClient } from '../lib/ClientContext';
 import { useFilters } from '../lib/FilterContext';
-import { Loader2, Database, TableProperties, CheckCircle2, AlertCircle, Fingerprint } from 'lucide-react';
-
-export default function DataCoverage() {
-  const { startDate, endDate } = useFilters();
-  const [tableData, setTableData] = useState<any[]>([]);
-  const [paramData, setParamData] = useState<any>(null);
-  const [hlcCoverage, setHlcCoverage] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let isCurrent = true;
-    setLoading(true);
-
-    const vendorCoverageUrl = `/api/analytics/vendor-coverage?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`;
-
-    Promise.all([
-      fetch('/api/analytics/discovery').then(r => r.ok ? r.json() : { success: false }).catch(() => ({ success: false })),
-      fetch('/api/analytics/parameter-coverage').then(r => r.ok ? r.json() : { success: false }).catch(() => ({ success: false })),
-      fetch(vendorCoverageUrl).then(r => r.ok ? r.json() : { success: false }).catch(() => ({ success: false }))
-    ]).then(([tData, pData, hData]) => {
-      if (!isCurrent) return;
-      if (tData?.success) setTableData(tData.data);
-      if (pData?.success) setParamData(pData.data);
-      if (hData && hData?.success) setHlcCoverage(hData.data);
-      setLoading(false);
-    }).catch(err => {
-      console.warn("Data coverage fetch failed:", err);
-      if (isCurrent) setLoading(false);
-    });
-
-    return () => { isCurrent = false; };
-  }, [startDate, endDate]);
-
-  if (loading || !paramData) {
-    return (
-      <div className="w-full px-6 lg:px-8 py-6 lg:py-8 pb-24 max-w-[1920px] mx-auto fade-in space-y-6"><TableSkeleton /></div>
-    );
+import { exactNumber } from '../../contracts/format';
+export default function DataCoverage(){
+  const {data,loading,error,refetch}=useAnalyticsData<any>('source-coverage');
+  const {selectedClient}=useClient(),{startDate,endDate}=useFilters();
+  const [role,setRole]=useState('leads'),[result,setResult]=useState<any>(null),[failure,setFailure]=useState<string|null>(null),[checking,setChecking]=useState(false);
+  const [controller,setController]=useState<AbortController|null>(null);
+  useEffect(()=>{controller?.abort();setResult(null);setFailure(null);setChecking(false);},[role,selectedClient,startDate,endDate]);
+  useEffect(()=>()=>controller?.abort(),[controller]);
+  async function check(){
+    controller?.abort();const request=new AbortController();setController(request);setChecking(true);setFailure(null);setResult(null);
+    try{const q=new URLSearchParams({clientId:selectedClient,startDate,endDate});
+      const response=await fetch(`/api/analytics/source-metrics/${role}?${q}`,{signal:request.signal,credentials:'same-origin'}),body=await response.json();
+      if(!response.ok||!body.success)throw new Error(body.error||'Source metrics could not be read');
+      if(!request.signal.aborted)setResult(body.data);
+    }catch(e){if(!request.signal.aborted)setFailure(e instanceof Error?e.message:'Source query failed');}finally{if(!request.signal.aborted)setChecking(false);}
   }
-  
-  const mappedCount = tableData.filter(d => d.mapped).length;
-  const totalCount = tableData.length;
-  const coverage = totalCount > 0 ? ((mappedCount / totalCount) * 100).toFixed(1) : '0.0';
-
-  return (
-    <div className="w-full px-6 lg:px-8 py-6 lg:py-8 pb-24 max-w-[1920px] mx-auto fade-in space-y-6">
-      <PageHeader 
-        title="Data & Parameter Mapping Coverage" 
-        category="Semantic Schema Integrity"
-        description="Audit BigQuery field mappings, canonical parameter schemas, and vendor field presence and positive outcome flags." 
-      />
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5 mb-6 sm:mb-8">
-        <KpiCard title="Parameters Mapped" value={paramData.summary.mapped + " / " + paramData.summary.totalRequired} />
-        <KpiCard title="Parameter Mapping Coverage" value={paramData.summary.coveragePercent} suffix="%" />
-        <KpiCard title="Tables Listed" value={totalCount} />
-        <KpiCard title="Measured Source Conflicts" value={paramData.summary.sourceConflicts} isPositiveGood={false} />
-      </div>
-      <div className="enterprise-card overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200 bg-surface-sec">
-          <h2 className="font-semibold text-text-main">Canonical Parameter Registry</h2>
-        </div>
-        <div className="overflow-x-auto max-h-[500px]">
-          <table className="enterprise-table">
-            <thead>
-              <tr>
-                <th>Parameter</th>
-                <th>Source Table</th>
-                <th>Source Column</th>
-                <th>Type</th>
-                <th>Fallback Source</th>
-                <th className="text-right">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {paramData.parameters.map((p: any, i: number) => (
-                <tr key={i} className="hover:bg-surface-sec">
-                  <td>{p.canonicalParameter}</td>
-                  <td>{p.sourceTable}</td>
-                  <td>{p.sourceColumn}</td>
-                  <td>
-                    <span className="px-2 py-0.5 rounded bg-slate-100 text-xs font-mono">{p.dataType}</span>
-                  </td>
-                  <td>{p.fallbackSource || '-'}</td>
-                  <td>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${p.status === 'MAPPED' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
-                      {p.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="enterprise-card overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200 bg-surface-sec">
-          <h2 className="font-semibold text-text-main">Table Schema Matrix</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="enterprise-table">
-            <thead>
-              <tr>
-                <th>Dataset</th>
-                <th>Table</th>
-                <th>Domain</th>
-                <th>Rows</th>
-                <th>Used By</th>
-                <th className="text-right">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {tableData.map((d: any, i: number) => (
-                <tr key={i} className="hover:bg-surface-sec">
-                  <td>{d.dataset}</td>
-                  <td>
-                    <TableProperties className="w-4 h-4 text-indigo-400" />
-                    {d.table}
-                  </td>
-                  <td>{d.domain}</td>
-                  <td>{formatTableNumber(d.rows)}</td>
-                  <td>{d.usedBy || '-'}</td>
-                  <td>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${d.mapped ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
-                      {d.mapped ? 'MAPPED' : 'UNMAPPED'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      
-      <div className="enterprise-card overflow-hidden mt-6">
-        <div className="px-6 py-4 border-b border-slate-200 bg-surface-sec">
-          <h2 className="font-semibold text-text-main">HLC Vendor Field Coverage</h2>
-          <p className="text-xs text-text-sec mt-1">Completeness of analytical fields partitioned by HLC Vendor.</p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="enterprise-table">
-            <thead>
-              <tr>
-                <th>Vendor</th>
-                <th className="text-right">Transactions</th>
-                <th className="text-right">Status</th>
-                <th className="text-right">Attempted-Delivery Timestamp Present (%)</th>
-                <th className="text-right">First-Dial Timestamp Present (%)</th>
-                <th className="text-right">Last-Dial Timestamp Present (%)</th>
-                <th className="text-right">Disposition</th>
-                <th className="text-right">Positive RPC Flag (%)</th>
-                <th className="text-right">Positive Sale Flag (%)</th>
-                <th className="text-right">Positive Activation Flag (%)</th>
-                <th className="text-right">Positive Recorded Revenue (%)</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {hlcCoverage.map((d: any, i: number) => {
-                const pct = (val: number) => (val * 100).toFixed(1) + '%';
-                const getColor = (val: number) => val > 0.9 ? 'text-emerald-600 font-medium' : val > 0.5 ? 'text-amber-600' : 'text-slate-400';
-                return (
-                  <tr key={i} className="hover:bg-surface-sec">
-                    <td className="font-medium text-text-main">{d.vendor || 'Unknown'}</td>
-                    <td className="text-right">{formatTableNumber(d.total_transactions)}</td>
-                    <td className={"text-right " + getColor(d.coverage_status)}>{pct(d.coverage_status)}</td>
-                    <td className={"text-right " + getColor(d.coverage_delivery)}>{pct(d.coverage_delivery)}</td>
-                    <td className={"text-right " + getColor(d.coverage_first_call)}>{pct(d.coverage_first_call)}</td>
-                    <td className={"text-right " + getColor(d.coverage_last_call)}>{pct(d.coverage_last_call)}</td>
-                    <td className={"text-right " + getColor(d.coverage_disposition)}>{pct(d.coverage_disposition)}</td>
-                    <td className={"text-right " + getColor(d.coverage_rpc)}>{pct(d.coverage_rpc)}</td>
-                    <td className={"text-right " + getColor(d.coverage_sale)}>{pct(d.coverage_sale)}</td>
-                    <td className={"text-right " + getColor(d.coverage_activation)}>{pct(d.coverage_activation)}</td>
-                    <td className={"text-right " + getColor(d.coverage_revenue)}>{pct(d.coverage_revenue)}</td>
-                  </tr>
-                );
-              })}
-              {hlcCoverage.length === 0 && (
-                <tr>
-                  <td colSpan={11} className="text-center py-6 text-text-mute italic">No HLC vendor data available for the current filters.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-    </div>
-  );
+  const visibleResult=result?.role===role&&result?.scope?.clientId===selectedClient&&result?.scope?.startDate===startDate&&result?.scope?.endDate===endDate?result:null;
+  return <PageShell><PageHeader title="Source Field Mappings" description="Live source metadata, metric dependencies and API query evidence. Schema presence is not proof of data completeness."/>
+    {loading||error||!data?<DataState loading={loading} error={error} empty={!data} retry={refetch}/>:<div className="space-y-5">
+      <div className="enterprise-card p-5" role="note"><strong>{data.inventoryComplete?'Dataset inventory retrieved.':'Dataset inventory is incomplete.'}</strong><p>Mapped tables are checked independently. Unmapped tables are listed, not automatically joined. Approved Evidence Reports read their pinned fact snapshots, not these raw tables.</p></div>
+      <section className="enterprise-card p-5"><h2 className="font-semibold mb-3">Configured Tables and API Consumers</h2><div className="overflow-x-auto"><table className="enterprise-table w-full" aria-label="Source table coverage"><thead><tr>{['Source','Physical Table','Schema Check','Metadata Row Count','API / Reports'].map(h=><th key={h} scope="col">{h}</th>)}</tr></thead><tbody>
+        {data.sources.map((s:any)=><tr key={s.role}><th scope="row">{s.label}</th><td>{s.table??'Not configured'}</td><td>{s.status}{s.reason&&<p className="text-sm">{s.reason}</p>}</td><td>{s.rowCount==null?'Unavailable':exactNumber(s.rowCount)}</td><td>{s.api}<p className="text-sm">{s.legacyConsumers.join(', ')}</p></td></tr>)}
+      </tbody></table></div><p className="text-xs mt-3">Metadata row counts are not period-filtered counts and can be unavailable for views.</p></section>
+      <section className="enterprise-card p-5 space-y-4"><h2 className="font-semibold">Check Populated Source Metrics</h2><p className="text-sm">This runs an aggregate API query for the selected source and date range. Legacy vendor, source and medium filters are not applied in this source-level diagnostic. Counts use each table’s stated date field; they are not reconciled cohort totals.</p>
+        <div className="flex flex-wrap items-end gap-3"><label className="cx-field"><span>Source to inspect</span><select value={role} onChange={e=>setRole(e.target.value)}>{data.sources.map((s:any)=><option value={s.role} key={s.role}>{s.label}</option>)}</select></label><button type="button" className="cx-button-primary" disabled={checking} onClick={check}>{checking?'Checking…':'Check source metrics'}</button></div>
+        {failure&&<p role="alert">{failure}</p>}{visibleResult&&<div><p className="text-sm mb-3">{result.dateBasis} · {startDate} to {endDate}. {result.warning}</p><div className="overflow-x-auto"><table className="enterprise-table w-full" aria-label="Populated source metrics"><thead><tr>{['Metric','Value','Status','Valid / Missing / Invalid Rows'].map(h=><th key={h} scope="col">{h}</th>)}</tr></thead><tbody>{result.metrics.map((m:any)=><tr key={m.id}><th scope="row">{m.label}</th><td>{m.value===null?'Unavailable':exactNumber(m.value)}</td><td>{m.status}{m.reason&&<p className="text-sm">{m.reason}</p>}</td><td>{[m.validRows,m.missingRows,m.invalidRows].map(v=>v==null?'—':exactNumber(v)).join(' / ')}</td></tr>)}</tbody></table></div><p className="text-xs mt-3 break-all">Query job: {result.queryJobId??'Unavailable'} · {result.table}</p></div>}
+      </section>
+      <section className="enterprise-card p-5"><h2 className="font-semibold">Unmapped Dataset Tables</h2>{data.unmappedTables.length?<ul className="mt-3 space-y-2">{data.unmappedTables.map((t:any)=><li key={t.table}><code className="break-all">{t.table}</code><p className="text-sm">{t.reason}</p></li>)}</ul>:<p className="text-sm mt-2">{data.inventoryComplete?'No additional tables were returned by the authorised dataset inventory.':'Unknown: at least one dataset could not be listed.'}</p>}</section>
+      <section className="enterprise-card p-5"><h2 className="font-semibold">Evidence Report Dependencies</h2><p className="text-sm my-3">These metrics require canonical fact releases. Raw-table availability alone does not populate or approve a release.</p><div className="overflow-x-auto"><table className="enterprise-table w-full" aria-label="Metric fact dependencies"><thead><tr><th scope="col">Metric</th><th scope="col">Required Facts</th><th scope="col">API</th></tr></thead><tbody>{data.metricLineage.versioned.map((m:any)=><tr key={m.metricId}><th scope="row">{m.label}</th><td>{m.requiredFacts.join(', ')}</td><td>{m.api}</td></tr>)}</tbody></table></div></section>
+    </div>}
+  </PageShell>;
 }

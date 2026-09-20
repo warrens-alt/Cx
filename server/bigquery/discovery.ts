@@ -1,45 +1,11 @@
-import { TenantConfiguration } from './config';
-import { getBigQueryClient } from './client';
-
-export async function discoverData(client: TenantConfiguration) {
-  const bq = getBigQueryClient(client.bigQueryProject);
-  const [datasets] = await bq.getDatasets();
-  
-  let mapped = Object.values(client.semanticMappings.tables).map(t => String(t).split('.').pop());
-  
-  let tablesList = [];
-  
-  for (const dataset of datasets) {
-    if (!client.bigQueryDatasets.includes(dataset.id)) continue; // only focus on lead_ledger for this prototype, or we could do all
-    const [tables] = await dataset.getTables();
-    
-    for (const table of tables) {
-      const [metadata] = await table.getMetadata();
-      const isMapped = mapped.includes(table.id);
-      
-      let domain = 'Unknown';
-      if (table.id.includes('vicidial')) domain = 'Calls';
-      else if (table.id.includes('activations')) domain = 'Commercial';
-      else if (table.id.includes('platform_insights')) domain = 'Marketing';
-      else if (table.id.includes('lead_ledger')) domain = 'Lead Lifecycle';
-      
-      let usedBy = isMapped ? 'Overview, Calls, Outcomes' : '';
-      if (domain === 'Marketing') usedBy = 'Acquisition';
-      if (domain === 'Commercial' && isMapped) usedBy = 'Outcomes, Revenue';
-      
-      tablesList.push({
-        dataset: dataset.id,
-        table: table.id,
-        type: metadata.type,
-        domain,
-        rows: metadata.numRows,
-        latestRecord: 'N/A', // Omitted deep scan for performance
-        mapped: isMapped,
-        usedBy,
-        status: 'ACTIVE'
-      });
-    }
-  }
-  
-  return tablesList;
+import type { TenantConfiguration } from './config';
+import { sourceCatalogue } from './sourceCatalog';
+/** Discovery reflects actual configured identities and live metadata, not filename guesses. */
+export async function discoverData(client:TenantConfiguration){
+  const catalogue=await sourceCatalogue(client.id);
+  return [...catalogue.sources.map(s=>({dataset:s.table?.split('.')[1]??null,table:s.table?.split('.')[2]??null,tableId:s.table,
+    type:'type' in s?s.type:null,domain:s.label,rows:s.rowCount,latestRecord:null,mapped:!!s.table,
+    usedBy:s.legacyConsumers.join(', '),status:s.status,reason:s.reason??null,inventoryComplete:catalogue.inventoryComplete})),
+    ...catalogue.unmappedTables.map(s=>({dataset:s.table.split('.')[1],table:s.table.split('.')[2],tableId:s.table,type:null,domain:'Unmapped',rows:null,
+      latestRecord:null,mapped:false,usedBy:'',status:s.status,reason:s.reason,inventoryComplete:catalogue.inventoryComplete}))];
 }

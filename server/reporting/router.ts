@@ -14,7 +14,7 @@ export function createReportingRouter(repository: ReportRepository = new BigQuer
     const tenant=String(req.query.tenantId||''); if(!/^[a-zA-Z0-9_-]{1,80}$/.test(tenant))throw new RequestError('Invalid tenant');
     requireTenant(res.locals.principal,tenant);
     const release=repository.configured?await repository.release(tenant):null;
-    return res.json({success:true,data:{metrics:METRICS,metricVersion:METRIC_VERSION,modelVersion:MODEL_VERSION,available:!!release,
+    return res.json({success:true,data:{metrics:METRICS.map(m=>({...m,api:'/api/reporting/reports',sourceTables:m.requires.map(f=>({fact:f,table:release?.snapshots[f]?.table??null,sourceStatus:release?.sources.find(s=>s.fact===f)?.status??'UNAVAILABLE'}))})),metricVersion:METRIC_VERSION,modelVersion:MODEL_VERSION,available:!!release,
       reason:!repository.configured?'The versioned reporting dataset has not been configured.':!release?'No approved snapshot release has been published.':null,
       release:release?{releaseId:release.releaseId,cutoff:release.cutoff,sourceBatchIds:release.sourceBatchIds,sources:release.sources,checks:release.checks}:null}});
   }));
