@@ -1,0 +1,17 @@
+diff --git a/tooling/browser/visual-controls.mjs b/tooling/browser/visual-controls.mjs
+--- a/tooling/browser/visual-controls.mjs
++++ b/tooling/browser/visual-controls.mjs
+@@ -49,2 +49,3 @@
+-      for(const kind of ['column','heatmap','bar']){await chart.getByLabel('Chart type',{exact:true}).selectOption(kind);await page.waitForTimeout(75);checks++;}
+-      assert.equal(await chart.getByLabel('Chart type',{exact:true}).locator('option[value="line"]').isDisabled(),true);checks++;
++      for(const kind of ['column','heatmap','bar']){await chart.getByLabel('Chart type',{exact:true}).selectOption(kind);if(kind==='heatmap')await chart.getByRole('list',{name:'Heatmap points'}).waitFor();else await chart.getByRole('img',{name:new RegExp(kind+' chart')}).waitFor();checks++;}
++      // Check the native option rather than the enclosing label's enabled select control.
++      assert.equal(await chart.getByLabel('Chart type',{exact:true}).locator('option[value="line"]').evaluate(option=>option.disabled),true);checks++;
+@@ -62,2 +63,2 @@
+-      const block=page.locator('[data-visual-table="media.groups"]');await block.getByRole('button',{name:'Table only',exact:true}).click();assert.equal(await block.locator('[data-testid="visual-view"]').count(),0);checks++;
+-      await block.getByRole('button',{name:'Chart only',exact:true}).click();assert.equal(await block.getByRole('table',{name:'Media channel metrics'}).count(),0);checks++;
++      const block=page.locator('[data-visual-table="media.groups"]');await block.getByRole('button',{name:'Table only',exact:true}).click();await block.locator('[data-testid="visual-view"]').waitFor({state:'detached'});assert.equal(await block.locator('[data-testid="visual-view"]').count(),0);checks++;
++      await block.getByRole('button',{name:'Chart only',exact:true}).click();await block.locator('.cx-original-table').waitFor({state:'hidden'});assert.equal(await block.getByRole('table',{name:'Media channel metrics'}).count(),0);checks++;
+@@ -89 +90 @@
+-    }catch(e){await page.screenshot({path:`verification/visual-failure-${viewport.width}.png`,fullPage:true});fs.writeFileSync(`verification/visual-failure-${viewport.width}.json`,JSON.stringify({error:String(e),stack:e.stack,url:page.url(),errors,body:await page.locator('body').innerText()},null,2));throw e;}
++    }catch(e){await page.screenshot({path:`verification/visual-failure-${viewport.width}.png`,fullPage:true});fs.writeFileSync(`verification/visual-failure-${viewport.width}.json`,JSON.stringify({error:String(e),stack:e.stack,url:page.url(),errors,controls:await page.locator('select').evaluateAll(items=>items.map(el=>({label:el.getAttribute('aria-label'),value:el.value,options:Array.from(el.options).map(o=>({value:o.value,disabled:o.disabled}))}))),body:await page.locator('body').innerText()},null,2));throw e;}
