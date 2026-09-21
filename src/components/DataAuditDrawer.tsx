@@ -1,3 +1,4 @@
+import { VisualTable } from './visuals/DataVisual';
 import React from 'react';
 import { formatTableNumber } from '../lib/formatters';
 import { useState, useEffect } from 'react';
@@ -185,7 +186,7 @@ export default function DataAuditDrawer({
                 ))}
               </div>
               <div className="bg-white border rounded-lg shadow-sm overflow-auto max-h-full">
-              <table className="w-full text-left border-collapse text-sm whitespace-nowrap">
+              <VisualTable visual={{id:'legacy.audit',data:(data)}} className="w-full text-left border-collapse text-sm whitespace-nowrap">
                 <thead className="bg-slate-50 sticky top-0 z-10">
                   <tr>
                     {Object.keys(data[0]).filter(k => activeGroups.includes(getColumnGroup(k))).map(key => (
@@ -206,7 +207,7 @@ export default function DataAuditDrawer({
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </VisualTable>
 
               {data.length > 100 && (
                 <div className="p-4 text-center text-text-mute text-sm border-t">

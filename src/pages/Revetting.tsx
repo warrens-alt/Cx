@@ -1,3 +1,4 @@
+import { VisualTable } from '../components/visuals/DataVisual';
 import React from 'react';
 import { PageShell } from '../components/PageShell';
 import PageHeader from '../components/PageHeader';
@@ -97,7 +98,7 @@ export default function Revetting() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-700">
+            <VisualTable visual={{id:'revetting.comparison',data:(comparison)}} className="w-full text-left text-sm text-slate-700">
               <thead className="bg-slate-50/80 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
                 <tr>
                   <th className="py-3 px-4">Cohort</th>
@@ -129,7 +130,7 @@ export default function Revetting() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </VisualTable>
           </div>
         </div>
 
@@ -146,7 +147,7 @@ export default function Revetting() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-slate-700">
+              <VisualTable visual={{id:'revetting.vetting',data:(vettingColorBreakdown)}} className="w-full text-left text-sm text-slate-700">
                 <thead className="bg-slate-50/80 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
                   <tr>
                     <th className="py-3 px-4">Vetting Tier</th>
@@ -177,7 +178,7 @@ export default function Revetting() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </VisualTable>
             </div>
           </div>
         )}

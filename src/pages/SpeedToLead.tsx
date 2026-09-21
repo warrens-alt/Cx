@@ -1,3 +1,4 @@
+import { VisualTable } from '../components/visuals/DataVisual';
 import React from 'react';
 import { PageShell } from '../components/PageShell';
 import PageHeader from '../components/PageHeader';
@@ -31,11 +32,11 @@ export default function SpeedToLead() {
           volumeKey="leads" volumeName="Transaction Rows" primaryLineKey="rpc" primaryLineName="RPC Flag Rows / Rows in Band (%)" secondaryLineKey="sale" secondaryLineName="Sale Flag Rows / Rows in Band (%)"/>
       </div>
       <section className="enterprise-card p-5 overflow-x-auto"><h2 className="font-semibold mb-3">Transaction-Level Timing and Outcome Flags</h2>
-        <table className="enterprise-table w-full"><thead><tr>{['Elapsed Whole Minutes','Transaction Rows','RPC Flag Rows','Sale Flag Rows','Sale Flags with Recorded Revenue','Activation Flag Rows','Recorded Revenue','Recorded Revenue / Row'].map(h=><th key={h} scope="col">{h}</th>)}</tr></thead>
+        <VisualTable visual={{id:'speed.bands',data:(buckets)}} className="enterprise-table w-full"><thead><tr>{['Elapsed Whole Minutes','Transaction Rows','RPC Flag Rows','Sale Flag Rows','Sale Flags with Recorded Revenue','Activation Flag Rows','Recorded Revenue','Recorded Revenue / Row'].map(h=><th key={h} scope="col">{h}</th>)}</tr></thead>
           <tbody>{buckets.map((b:any)=><tr key={b.bucket}><th scope="row">{b.bucket}</th><td>{n(b.leads)}</td><td>{n(b.rpcCount)}<small className="block">{pct(b.rpc)} of rows in band</small></td>
             <td>{n(b.saleCount)}<small className="block">{pct(b.sale)} of rows in band</small></td><td>{n(b.billableCount)}<small className="block">{pct(b.billableRate)} of sale flag rows</small></td>
             <td>{n(b.actCount)}<small className="block">{pct(b.activation)} of sale flag rows</small></td><td>{clientConfig?.currency||'ZAR'} {n(b.revenue)}</td><td>{clientConfig?.currency||'ZAR'} {n(b.revPerLead)}</td></tr>)}</tbody>
-        </table>
+        </VisualTable>
       </section>
     </div>
   </PageShell>;

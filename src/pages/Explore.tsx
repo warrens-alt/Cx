@@ -1,3 +1,4 @@
+import { VisualTable } from '../components/visuals/DataVisual';
 import { EXPLORER_METRICS, formatExplorerValue } from '../../contracts/legacyMetrics';
 import { DIMENSION_LABELS } from '../../contracts/naming';
 import React, { useState, useEffect } from 'react';
@@ -297,7 +298,7 @@ export default function Explore() {
                   <EmptyState title="No Records Found" message="No data matches the selected filters and dimensions." />
                 ) : chartType === 'table' ? (
                   <div className="overflow-x-auto border border-border-subtle rounded-lg">
-                    <table className="enterprise-table w-full" aria-label="Explorer results">
+                    <VisualTable visual={{id:'explore.results',data:(rows), context:{metric,dimension}}} className="enterprise-table w-full" aria-label="Explorer results">
                       <thead className="bg-surface-sec text-text-sec font-semibold text-xs uppercase tracking-wider">
                         <tr>
                           <th scope="col">{DIMENSIONS.find(d => d.id === dimension)?.label}</th>
@@ -319,7 +320,7 @@ export default function Explore() {
                           );
                         })}
                       </tbody>
-                    </table>
+                    </VisualTable>
                   </div>
                 ) : chartType === 'donut' && additive ? (
                   <div className="h-[400px]">

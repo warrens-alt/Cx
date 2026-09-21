@@ -4,6 +4,7 @@ export const NAV_GROUPS = [
     {
       title: 'OVERVIEW',
       items: [
+        { name: 'Visual Workspace', path: '/visuals', icon: Activity },
         { name: PAGE_TITLES['/reports'], path: '/reports', icon: ShieldCheck },
         { name: PAGE_TITLES['/overview'], path: '/overview', icon: LayoutDashboard },
         { name: PAGE_TITLES['/insights'], path: '/insights', icon: Sparkles },

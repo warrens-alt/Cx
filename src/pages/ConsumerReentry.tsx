@@ -1,3 +1,4 @@
+import { VisualTable } from '../components/visuals/DataVisual';
 import React, { useState } from 'react';
 import { PageShell } from '../components/PageShell';
 import PageHeader from '../components/PageHeader';
@@ -145,7 +146,7 @@ export default function ConsumerReentry() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-700">
+            <VisualTable visual={{id:'consumers.tiers',data:(tiers)}} className="w-full text-left text-sm text-slate-700">
               <thead className="bg-slate-50/80 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
                 <tr>
                   <th className="py-3 px-4">Lead Tier</th>
@@ -179,7 +180,7 @@ export default function ConsumerReentry() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </VisualTable>
           </div>
         </div>
       )}
@@ -199,7 +200,7 @@ export default function ConsumerReentry() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-700">
+            <VisualTable visual={{id:'consumers.sequence',data:(sequenceEconomics)}} className="w-full text-left text-sm text-slate-700">
               <thead className="bg-slate-50/80 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
                 <tr>
                   <th className="py-3 px-4">Sequential Stage</th>
@@ -234,7 +235,7 @@ export default function ConsumerReentry() {
                   );
                 })}
               </tbody>
-            </table>
+            </VisualTable>
           </div>
         </div>
       )}
@@ -251,7 +252,7 @@ export default function ConsumerReentry() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-700">
+            <VisualTable visual={{id:'consumers.sample',data:(repeatConsumersSample)}} className="w-full text-left text-sm text-slate-700">
               <thead className="bg-slate-50/80 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
                 <tr>
                   <th className="py-3 px-4">Consumer ID</th>
@@ -288,7 +289,7 @@ export default function ConsumerReentry() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </VisualTable>
           </div>
         </div>
       )}

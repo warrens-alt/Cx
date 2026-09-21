@@ -12,6 +12,7 @@ import Modal from './components/Modal';
 const GlobalFilter = React.lazy(() => import('./components/GlobalFilter'));
 import { PageSkeleton } from './components/Skeleton';
 const CommandPalette = React.lazy(() => import('./components/CommandPalette'));
+const VisualWorkspace = React.lazy(() => import('./pages/VisualWorkspace'));
 const VersionedReports = React.lazy(() => import('./pages/VersionedReports'));
 const Overview = React.lazy(() => import('./pages/Overview'));
 const Insights = React.lazy(() => import('./pages/Insights'));
@@ -61,7 +62,7 @@ function Shell() {
       <header className="cx-topbar">
         <button type="button" className="cx-icon-button cx-mobile-menu" aria-label="Open navigation" onClick={()=>setMobile(true)}><Menu size={20}/></button>
         <button type="button" className="cx-icon-button cx-desktop-toggle" aria-label={sidebar?'Collapse navigation':'Expand navigation'} aria-expanded={sidebar} onClick={()=>setSidebar(old=>!old)}>{sidebar?<PanelLeftClose size={18}/>:<PanelLeftOpen size={18}/>}</button>
-        <div className="cx-breadcrumb"><span>{BRAND.name}</span><span aria-hidden="true">/</span><strong>{PAGE_TITLES[location.pathname]||'Workspace'}</strong></div>
+        <div className="cx-breadcrumb"><span>{BRAND.name}</span><span aria-hidden="true">/</span><strong>{(location.pathname==='/visuals'?'Visual Workspace':PAGE_TITLES[location.pathname])||'Workspace'}</strong></div>
         <div className="cx-topbar-actions"><button type="button" className="cx-search-trigger" aria-label="Search pages" onClick={openSearch}><Search size={16}/><span>Find a page</span><kbd>⌘ K</kbd></button>
           <button type="button" className="cx-icon-button" aria-label={density==='comfortable'?'Use compact table spacing':'Use comfortable table spacing'} aria-pressed={density==='compact'} onClick={()=>setDensity(old=>old==='compact'?'comfortable':'compact')}><Columns3 size={18}/></button>
           <span className="cx-workspace-name" title={clientConfig?.name}>{clientConfig?.name||'Workspace'}</span>
@@ -78,6 +79,7 @@ function Shell() {
             <Routes>
               <Route path="/" element={<Navigate to="/reports" replace />} />
               <Route path="/reports" element={<VersionedReports key={selectedClient} />} />
+              <Route path="/visuals" element={<VisualWorkspace />} />
               <Route path="/overview" element={<Overview />} />
               <Route path="/insights" element={<Insights />} />
               <Route path="/explore" element={<Explore />} />

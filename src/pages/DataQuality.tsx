@@ -1,3 +1,4 @@
+import { VisualTable } from '../components/visuals/DataVisual';
 import React, { useCallback } from 'react';
 import { PageShell } from '../components/PageShell';
 import { formatTableNumber, formatTableCurrency } from '../lib/formatters';
@@ -95,7 +96,7 @@ export default function DataQuality() {
         </div>
         
         <div className="overflow-x-auto">
-          <table className="enterprise-table">
+          <VisualTable visual={{id:'quality.issues',data:(issuesData)}} className="enterprise-table">
             <thead className="bg-surface-sec text-text-sec font-semibold border-b border-slate-200 uppercase tracking-wider text-xs">
               <tr>
                 <th className="px-6 py-4">Issue Description</th>
@@ -131,7 +132,7 @@ export default function DataQuality() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </VisualTable>
         </div>
       </div>
     </PageShell>

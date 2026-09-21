@@ -1,3 +1,4 @@
+import { VisualTable } from '../components/visuals/DataVisual';
 import React, { useState } from 'react';
 import { PageShell } from '../components/PageShell';
 import PageHeader from '../components/PageHeader';
@@ -95,7 +96,7 @@ export default function Insights() {
           <h2 className="font-semibold text-text-main">Source Contribution Waterfall</h2>
         </div>
         <div className="overflow-x-auto">
-          <table className="enterprise-table w-full">
+          <VisualTable visual={{id:'comparison',data:(rows), context:{metric:selectedMetric}}} className="enterprise-table w-full">
             <thead>
               <tr>
                 <th>Source Segment</th>
@@ -131,7 +132,7 @@ export default function Insights() {
                 );
               })}
             </tbody>
-          </table>
+          </VisualTable>
         </div>
       </div>
     </div>

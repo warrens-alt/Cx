@@ -1,3 +1,4 @@
+import DataVisual from '../components/visuals/DataVisual';
 import { Database, FileCheck2, ArrowRight, RefreshCw, Info, X } from 'lucide-react';
 import { PAGE_TITLES } from '../../contracts/naming';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -101,6 +102,7 @@ export default function VersionedReports() {
     {matches && report.error && <div className="cx-request-state cx-request-error" role="alert"><p>{report.error.message}</p><button type="button" className="cx-button-secondary" onClick={()=>report.refetch()}>Retry report</button></div>}
     {data && <section className="cx-report-results" aria-label="Report results">
       <div className="cx-execution-strip"><h2>Report results</h2><p>Execution: <code className="break-all">{data.executionId}</code></p><p>Release {data.releaseId} · {data.metricVersion} · Event cutoff {data.request.observationCutoff}</p><p className="break-all">Query job: {data.queryJobId || 'Unavailable'}</p><button className="cx-link-button mr-4" onClick={()=>report.refetch()}>Revalidate and replay</button><button className="cx-link-button mt-2" onClick={()=>{const {token,...safe}=data;download(safe,`cx-${data.executionId.slice(0,12)}.json`);}}>Export exact report JSON</button></div>
+      <DataVisual id="report.totals" data={data.totals} context={{note:`Snapshot ${data.releaseId} · ${data.metricVersion} · ${data.request.startDate} to ${data.request.endDate}. Each metric retains its own unit and population.`}}/>
       <div className="cx-result-grid">{data.totals.map(m=><article key={m.metricId} className="enterprise-card cx-result-card" data-testid={`metric-${m.metricId}`}>
         <h2 className="text-sm font-semibold">{METRIC_BY_ID[m.metricId].label}</h2><p className="cx-exact-value" data-testid="metric-value">{metricValue(m)}</p>
         <p className="cx-result-status"><span className="cx-status" data-status={m.calculationStatus}>Calculation: {m.calculationStatus}</span><span className="cx-status" data-status={m.completeness}>Evidence: {m.completeness}</span></p>{m.reason&&<p className="text-xs mt-2">{m.reason}</p>}
@@ -111,7 +113,7 @@ export default function VersionedReports() {
       <div key={data.executionId}><ReportBreakdown rows={data.groups} grouping={data.request.grouping} busy={busy} formatValue={metricValue} inspect={inspect}/></div>
       <details className="enterprise-card cx-report-details" onToggle={event=>setShowValidation(event.currentTarget.open)}><summary>Release validation and source evidence</summary>{showValidation && <pre className="text-xs whitespace-pre-wrap break-all mt-3">{JSON.stringify({checks:data.validation,sources:data.sources,batches:data.sourceBatchIds},null,2)}</pre>}</details>
       {busy&&<p role="status">Reading evidence from the same snapshots…</p>}{evidenceError&&<p role="alert">{evidenceError}</p>}
-      {evidence && evidence.executionId===data.executionId && <section className="enterprise-card cx-evidence-panel"><h2 className="font-semibold">Evidence: {METRIC_BY_ID[evidence.metricId].label}</h2><p>{evidence.rowCount} records. Truncation: no. Preview shows up to 20 records.</p><button className="cx-link-button my-3" onClick={()=>download(evidence,`cx-evidence-${evidence.metricId}.json`)}>Download complete scoped evidence JSON</button><pre className="text-xs whitespace-pre-wrap break-all">{JSON.stringify(evidence.rows.slice(0,20),null,2)}</pre></section>}
+      {evidence && evidence.executionId===data.executionId && <section className="enterprise-card cx-evidence-panel"><h2 className="font-semibold">Evidence: {METRIC_BY_ID[evidence.metricId].label}</h2><p>{evidence.rowCount} records. Truncation: no. Preview shows up to 20 records.</p><button className="cx-link-button my-3" onClick={()=>download(evidence,`cx-evidence-${evidence.metricId}.json`)}>Download complete scoped evidence JSON</button><DataVisual id="report.evidence" data={evidence.rows} context={{title:`Evidence Records · ${METRIC_BY_ID[evidence.metricId].label}`,note:`All returned evidence rows for execution ${data.executionId}; not just the 20-row text preview. Distinct entities are not inferred from row counts.`}}/><pre className="text-xs whitespace-pre-wrap break-all">{JSON.stringify(evidence.rows.slice(0,20),null,2)}</pre></section>}
     </section>}
   </div>;
 }

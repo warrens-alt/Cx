@@ -39,7 +39,7 @@ export function HorizontalBarChart({
 
   return (
     <div className="enterprise-card p-5 flex flex-col h-full w-full">
-      <ChartToolbar title={title} subtitle={subtitle} auditTitle={auditTitle} auditContext={auditContext} auditGrain={auditGrain} />
+      <ChartToolbar visualData={data} title={title} subtitle={subtitle} auditTitle={auditTitle} auditContext={auditContext} auditGrain={auditGrain} />
       
       <div style={{ height, width: '100%' }}>
         <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={60}>

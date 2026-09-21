@@ -1,3 +1,4 @@
+import { VisualTable } from '../components/visuals/DataVisual';
 import React, { useState } from 'react';
 import { PageShell } from '../components/PageShell';
 import PageHeader from '../components/PageHeader';
@@ -146,7 +147,7 @@ export default function RoutingIntelligence() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-slate-700">
+              <VisualTable visual={{id:'routing.depth',data:(depthBreakdown)}} className="w-full text-left text-sm text-slate-700">
                 <thead className="bg-slate-50/80 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
                   <tr>
                     <th className="py-3 px-4">Routing Depth</th>
@@ -183,7 +184,7 @@ export default function RoutingIntelligence() {
                     );
                   })}
                 </tbody>
-              </table>
+              </VisualTable>
             </div>
           </div>
 
@@ -199,7 +200,7 @@ export default function RoutingIntelligence() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-slate-700">
+              <VisualTable visual={{id:'routing.paths',data:(topRoutePaths)}} className="w-full text-left text-sm text-slate-700">
                 <thead className="bg-slate-50/80 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
                   <tr>
                     <th className="py-3 px-4">Journey Path</th>
@@ -254,7 +255,7 @@ export default function RoutingIntelligence() {
                     );
                   })}
                 </tbody>
-              </table>
+              </VisualTable>
             </div>
           </div>
         </div>
@@ -276,7 +277,7 @@ export default function RoutingIntelligence() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-700">
+            <VisualTable visual={{id:'routing.handoff',data:(partnerHandoff)}} className="w-full text-left text-sm text-slate-700">
               <thead className="bg-slate-50/80 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
                 <tr>
                   <th className="py-3 px-4">ROR Partner</th>
@@ -324,7 +325,7 @@ export default function RoutingIntelligence() {
                   );
                 })}
               </tbody>
-            </table>
+            </VisualTable>
           </div>
         </div>
       )}
@@ -353,7 +354,7 @@ export default function RoutingIntelligence() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-slate-700">
+              <VisualTable visual={{id:'routing.missing',data:(missingSample)}} className="w-full text-left text-sm text-slate-700">
                 <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
                   <tr>
                     <th className="py-3 px-4">Lead ID</th>
@@ -376,7 +377,7 @@ export default function RoutingIntelligence() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </VisualTable>
             </div>
           )}
         </div>

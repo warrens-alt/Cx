@@ -1,3 +1,4 @@
+import { VisualTable } from '../components/visuals/DataVisual';
 import React, { useState } from 'react';
 import { PageShell } from '../components/PageShell';
 import PageHeader from '../components/PageHeader';
@@ -11,9 +12,9 @@ import { METRICS } from '../lib/metrics';
 import { LEGACY_LABELS as L } from '../../contracts/naming';
 const number = (v: unknown, digits = 1) => v === null || v === undefined ? 'Unavailable' : Number(v).toLocaleString('en-GB', { maximumFractionDigits: digits });
 const pct = (v: unknown) => v === null || v === undefined ? 'Unavailable' : number(v) + '%';
-function Table({ headings, rows }: { headings: string[]; rows: (string | number)[][] }) {
-  return <div className="overflow-x-auto"><table className="enterprise-table w-full"><thead><tr>{headings.map(h => <th key={h} scope="col">{h}</th>)}</tr></thead>
-    <tbody>{rows.map((row, i) => <tr key={i}>{row.map((cell,j) => <td key={j}>{cell}</td>)}</tr>)}{!rows.length && <tr><td colSpan={headings.length}>No records returned for this view.</td></tr>}</tbody></table></div>;
+function Table({ headings, rows, visual }: { headings: string[]; rows: (string | number)[][]; visual: any }) {
+  return <div className="overflow-x-auto"><VisualTable visual={visual} className="enterprise-table w-full"><thead><tr>{headings.map(h => <th key={h} scope="col">{h}</th>)}</tr></thead>
+    <tbody>{rows.map((row, i) => <tr key={i}>{row.map((cell,j) => <td key={j}>{cell}</td>)}</tr>)}{!rows.length && <tr><td colSpan={headings.length}>No records returned for this view.</td></tr>}</tbody></VisualTable></div>;
 }
 export default function CallPerformance() {
   const { data, loading, error, refetch } = useAnalyticsData('calls');
@@ -42,24 +43,24 @@ export default function CallPerformance() {
             data={bands} volumeKey="current" volumeName="Leads in Band" primaryLineKey="rpc" primaryLineName="RPC / Leads in Band (%)" secondaryLineKey="sale" secondaryLineName="Sales / Leads in Band (%)" />
           <DistributionBar title="Lead Counts by Recorded Attempts" subtitle="Counts of lead records, not call events or distinct consumers." data={bands} bucketKey="bucket" valueKey="current" />
         </div>
-        <section className="enterprise-card p-5"><h2 className="font-semibold mb-3">Lead-Level Outcomes</h2><Table headings={['Call-Attempt Band','Lead Records','RPC / Leads in Band (%)','Sales / Leads in Band (%)','Activations / Leads in Band (%)','Recorded Revenue / Lead','Recorded Revenue']}
+        <section className="enterprise-card p-5"><h2 className="font-semibold mb-3">Lead-Level Outcomes</h2><Table visual={{id:'calls.bands',data:bands}} headings={['Call-Attempt Band','Lead Records','RPC / Leads in Band (%)','Sales / Leads in Band (%)','Activations / Leads in Band (%)','Recorded Revenue / Lead','Recorded Revenue']}
           rows={bands.map((b:any)=>[b.bucket,number(b.current,0),pct(b.rpc),pct(b.sale),pct(b.activation),money(b.revPerLead),money(b.totalRevenue)])}/></section>
       </>}
       {tab==='timing' && <>
         <p className="text-sm">Counts are dialled lead records grouped by their first recorded dial, not total attempts or answered calls. Hours use the legacy timestamp interpretation; only hours 06–22 are returned. No operating roster or optimal calling window is inferred.</p>
-        <div className="grid lg:grid-cols-2 gap-6">{[['hourly','First-Dial Hour','label'],['dayOfWeek','First-Dial Weekday','day']].map(([key,title,label]) => <section key={key} className="enterprise-card p-5"><h2 className="font-semibold mb-3">{title}</h2><Table headings={[title,'Dialled Leads','RPC / Dialled Leads (%)','Sales / Dialled Leads (%)','Recorded Revenue']}
+        <div className="grid lg:grid-cols-2 gap-6">{[['hourly','First-Dial Hour','label'],['dayOfWeek','First-Dial Weekday','day']].map(([key,title,label]) => <section key={key} className="enterprise-card p-5"><h2 className="font-semibold mb-3">{title}</h2><Table visual={{id:key==='hourly'?'calls.hourly':'calls.weekdays',data:data[key]||[]}} headings={[title,'Dialled Leads','RPC / Dialled Leads (%)','Sales / Dialled Leads (%)','Recorded Revenue']}
           rows={(data[key]||[]).map((r:any)=>[r[label],number(r.volume,0),pct(r.rpcRate),pct(r.saleRate),money(r.revenue)])}/></section>)}</div>
       </>}
       {tab==='vendors' && <>
         <section className="enterprise-card p-5 space-y-3"><h2 className="font-semibold">Vendor Transaction Summary</h2>
           <p className="text-sm">Fetched leads are distinct lead IDs; the dialled and outcome counts below are transaction-row flags. Rates are row ratios, not deduplicated lead conversion rates. Recorded call counters may overlap across legacy transaction rows.</p>
           <label className="text-sm block">Find Vendor<input className="block border rounded p-2" value={vendorSearch} onChange={e=>setVendorSearch(e.target.value)}/></label>
-          <Table headings={['Vendor','Fetched Leads','Dialled Transaction Rows','Attempts / Dialled Row','One-Call Rows / Dialled Rows (%)','RPC Flag Rows / Dialled Rows (%)','Sale Flag Rows / Dialled Rows (%)','Recorded Revenue / Dialled Row']}
+          <Table visual={{id:'calls.vendors',data:vendors}} headings={['Vendor','Fetched Leads','Dialled Transaction Rows','Attempts / Dialled Row','One-Call Rows / Dialled Rows (%)','RPC Flag Rows / Dialled Rows (%)','Sale Flag Rows / Dialled Rows (%)','Recorded Revenue / Dialled Row']}
             rows={vendors.map((v:any)=>[v.vendor,number(v.totalLeads,0),number(v.calledLeads,0),number(v.avgCallsPerLead),pct(v.oneCallRate),pct(v.rpcRate),pct(v.saleRate),money(v.revPerLead)])}/>
         </section>
         <section className="enterprise-card p-5 space-y-3"><h2 className="font-semibold">Recorded Dispositions</h2>
           <p className="text-sm">Transaction IDs are counted within each disposition. Percentages use flag-row counts / distinct transaction IDs; records may overlap. Share refers to the returned top-ten groups only.</p>
-          <Table headings={['Disposition','Distinct Transaction IDs','Share of Returned Groups (%)','RPC Flag Rows / Transaction IDs (%)','Sale Flag Rows / Transaction IDs (%)','Recorded Revenue']}
+          <Table visual={{id:'calls.dispositions',data:data.dispositions||[]}} headings={['Disposition','Distinct Transaction IDs','Share of Returned Groups (%)','RPC Flag Rows / Transaction IDs (%)','Sale Flag Rows / Transaction IDs (%)','Recorded Revenue']}
             rows={(data.dispositions||[]).map((d:any)=>[d.disposition,number(d.volume,0),pct(d.share),pct(d.rpcRate),pct(d.saleRate),money(d.revenue)])}/>
         </section>
       </>}

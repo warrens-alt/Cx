@@ -55,7 +55,7 @@ export function FunnelWaterfall({
     <div className="enterprise-card p-5 h-full flex flex-col">
       <div className="flex items-start justify-between mb-4">
         <div>
-          <ChartToolbar 
+          <ChartToolbar visualData={steps}
             title={title} 
             subtitle={subtitle} 
             auditTitle={auditTitle} 

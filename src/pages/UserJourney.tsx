@@ -1,3 +1,4 @@
+import { VisualTable } from '../components/visuals/DataVisual';
 import React, { useState, useEffect } from 'react';
 import { PageShell } from '../components/PageShell';
 import PageHeader from '../components/PageHeader';
@@ -185,7 +186,7 @@ export default function UserJourneyPage() {
       <div className="flex flex-row items-start gap-6 mb-8 overflow-x-auto pb-4 custom-scrollbar">
         {/* Table 1: OnVest Journey */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex-shrink-0 min-w-[380px]">
-          <table className="w-full text-left">
+          <VisualTable visual={{id:'legacy.journey',data:(rates)}} className="w-full text-left">
             <thead>
               <tr><th colSpan={2} className={thDark}>OnVest Journey</th></tr>
               <tr>
@@ -214,12 +215,12 @@ export default function UserJourneyPage() {
                 <td className={tdGreen + " text-right font-mono"}>{formatPct(activationVolume, fetchedVolume)}</td>
               </tr>
             </tbody>
-          </table>
+          </VisualTable>
         </div>
 
         {/* Table 2: Touchpoints */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex-shrink-0 min-w-[340px]">
-          <table className="w-full text-left">
+          <VisualTable visual={{id:'legacy.journey',data:(volumes)}} className="w-full text-left">
             <thead>
               <tr>
                 <th className={thDark}>Touchpoints</th>
@@ -239,12 +240,12 @@ export default function UserJourneyPage() {
               <tr><td className={tdEmpty} colSpan={2}>&nbsp;</td></tr>
               <tr><td className={tdEmpty} colSpan={2}>&nbsp;</td></tr>
             </tbody>
-          </table>
+          </VisualTable>
         </div>
 
         {/* Table 3: Control / Date (Monthly Rates) */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex-shrink-0 min-w-[1000px]">
-          <table className="w-full text-left">
+          <VisualTable visual={{id:'legacy.journey',data:(months)}} className="w-full text-left">
             <thead>
               <tr>
                 <th className={thDark}>Control / Date</th>
@@ -278,13 +279,13 @@ export default function UserJourneyPage() {
                 <tr><td colSpan={10} className={tdLabel + " text-center text-text-sec py-8"}>No grouping data available</td></tr>
               )}
             </tbody>
-          </table>
+          </VisualTable>
         </div>
       </div>
 
       <div className="mb-8 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto custom-scrollbar">
-          <table className="w-full min-w-max text-left">
+          <VisualTable visual={{id:'legacy.journey',data:(months)}} className="w-full min-w-max text-left">
             <thead>
               <tr>
                 <th className={thTeal}>Period Start</th>
@@ -324,7 +325,7 @@ export default function UserJourneyPage() {
                 <tr><td colSpan={13} className={tdLabel + " text-center text-text-sec py-8"}>No grouping data available</td></tr>
               )}
             </tbody>
-          </table>
+          </VisualTable>
         </div>
       </div>
     </PageShell>

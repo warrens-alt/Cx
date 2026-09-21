@@ -1,3 +1,4 @@
+import { VisualTable } from './visuals/DataVisual';
 import React, { useEffect, useRef, useState } from 'react';
 import { useAnalyticsData } from '../lib/useAnalyticsData';
 interface Props { isOpen: boolean; onClose: () => void; metric: string; metricLabel: string; }
@@ -32,9 +33,9 @@ export default function AnalyseDrawer({ isOpen, onClose, metric, metricLabel }: 
     <label className="block">Break down by <select className="border rounded p-2 ml-2" value={dimension} onChange={e => setDimension(e.target.value)}><option value="source">Source</option><option value="medium">Medium</option><option value="grade">Grade</option><option value="vetting">Vetting</option></select></label>
     {loading ? <p role="status">Loading comparison…</p> : error ? <p role="alert">{error}</p> : <>
       <p className="text-sm">Current: {metadata?.currentPeriod?.startDate || '—'} to {metadata?.currentPeriod?.endDate || '—'}. Previous: {metadata?.previousPeriod?.startDate || '—'} to {metadata?.previousPeriod?.endDate || '—'}.</p>
-      <div className="overflow-x-auto"><table className="enterprise-table w-full"><thead><tr><th>Segment</th><th>Current</th><th>Previous</th><th>Change</th><th>Relative change</th></tr></thead><tbody>
+      <div className="overflow-x-auto"><VisualTable visual={{id:'comparison',data:(rows), context:{metric}}} className="enterprise-table w-full"><thead><tr><th>Segment</th><th>Current</th><th>Previous</th><th>Change</th><th>Relative change</th></tr></thead><tbody>
         {rows.map((row: any) => <tr key={row.segment}><td>{row.segment}</td><td>{format(row.current)}</td><td>{format(row.previous)}</td><td>{format(row.change)}</td><td>{row.pctChange === null ? 'No comparable baseline' : `${format(row.pctChange)}%`}</td></tr>)}
-      </tbody></table></div>{rows.length === 0 && <p>No comparable segment records were returned.</p>}
+      </tbody></VisualTable></div>{rows.length === 0 && <p>No comparable segment records were returned.</p>}
     </>}
   </div></div>;
 }

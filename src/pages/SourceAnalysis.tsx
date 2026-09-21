@@ -1,3 +1,4 @@
+import { VisualTable } from '../components/visuals/DataVisual';
 import React from 'react';
 import { useClient } from '../lib/ClientContext';
 import { PageShell } from '../components/PageShell';
@@ -17,6 +18,21 @@ export default function SourceAnalysis() {
   const currencyPrefix = clientConfig?.currency === 'ZAR' ? 'R ' : clientConfig?.currency === 'GBP' ? '£' : '$';
   const { data: sourceData, loading } = useAnalyticsData('sources');
 
+  // Keep hook order stable while the API moves between loading, data and empty states.
+  const sortedByVolume = React.useMemo(() => [...(sourceData || [])].sort((a: any, b: any) => b.leads - a.leads), [sourceData]);
+  // Group top 6 + other for composition donut
+  const donutData = React.useMemo(() => {
+    if (sortedByVolume.length <= 6) {
+      return sortedByVolume.map((s: any) => ({ name: s.source, value: s.leads }));
+    }
+    const top5 = sortedByVolume.slice(0, 5).map((s: any) => ({ name: s.source, value: s.leads }));
+    const others = sortedByVolume.slice(5).reduce((sum: number, s: any) => sum + s.leads, 0);
+    return [...top5, { name: 'Other Sources', value: others }];
+  }, [sortedByVolume]);
+
+  const [viewMode, setViewMode] = React.useState<'full' | 'rates' | 'volume'>('full');
+
+
   if (loading) {
     return (
       <PageShell>
@@ -34,7 +50,6 @@ export default function SourceAnalysis() {
     );
   }
 
-  const sortedByVolume = [...sourceData].sort((a: any, b: any) => b.leads - a.leads);
   const sortedBySaleRate = [...sourceData].sort((a: any, b: any) => b.saleRate - a.saleRate);
   const sortedByRevPerLead = [...sourceData].sort((a: any, b: any) => b.revPerLead - a.revPerLead);
 
@@ -43,18 +58,6 @@ export default function SourceAnalysis() {
   const topYield = sortedByRevPerLead[0];
 
   const totalLeads = sourceData.reduce((sum: number, s: any) => sum + (s.leads || 0), 0);
-
-  // Group top 6 + other for composition donut
-  const donutData = React.useMemo(() => {
-    if (sortedByVolume.length <= 6) {
-      return sortedByVolume.map((s: any) => ({ name: s.source, value: s.leads }));
-    }
-    const top5 = sortedByVolume.slice(0, 5).map((s: any) => ({ name: s.source, value: s.leads }));
-    const others = sortedByVolume.slice(5).reduce((sum: number, s: any) => sum + s.leads, 0);
-    return [...top5, { name: 'Other Sources', value: others }];
-  }, [sortedByVolume]);
-
-  const [viewMode, setViewMode] = React.useState<'full' | 'rates' | 'volume'>('full');
 
   return (
     <PageShell>
@@ -199,7 +202,7 @@ export default function SourceAnalysis() {
         </div>
         
         <div className="overflow-x-auto">
-          <table className="enterprise-table w-full">
+          <VisualTable visual={{id:'sources.performance',data:(sourceData)}} className="enterprise-table w-full">
             <thead className="bg-surface-sec text-text-sec font-semibold border-b border-border-subtle uppercase tracking-wider text-xs">
               {viewMode === 'full' && (
                 <tr>
@@ -308,7 +311,7 @@ export default function SourceAnalysis() {
                 );
               })}
             </tbody>
-          </table>
+          </VisualTable>
         </div>
       </div>
     </PageShell>

@@ -1,3 +1,4 @@
+import { VisualTable } from '../components/visuals/DataVisual';
 import React, { useState } from 'react';
 import { PageShell } from '../components/PageShell';
 import { useClient } from '../lib/ClientContext';
@@ -235,7 +236,7 @@ export default function Outcomes() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="enterprise-table w-full text-left text-sm">
+              <VisualTable visual={{id:'outcomes.status',data:(vendorStatusEconomics)}} className="enterprise-table w-full text-left text-sm">
                 <thead className="bg-surface-sec text-xs font-semibold text-text-sec uppercase tracking-wider border-b border-border-subtle">
                   <tr>
                     <th className="py-3 px-4">Vendor</th>
@@ -279,7 +280,7 @@ export default function Outcomes() {
                     );
                   })}
                 </tbody>
-              </table>
+              </VisualTable>
             </div>
           </div>
         </div>

@@ -1,3 +1,4 @@
+import { VisualTable } from '../components/visuals/DataVisual';
 import React from 'react';
 import { PageShell } from '../components/PageShell';
 import { formatTableNumber } from '../lib/formatters';
@@ -109,7 +110,7 @@ export default function QualityVetting() {
               </span>
             </div>
             <div className="overflow-x-auto">
-              <table className="enterprise-table w-full">
+              <VisualTable visual={{id:'quality.grades',data:(gradeBreakdown)}} className="enterprise-table w-full">
                 <thead className="bg-surface-sec text-text-sec font-semibold border-b border-border-subtle uppercase tracking-wider text-xs">
                   <tr>
                     <th className="px-5 py-3">Quality Grade</th>
@@ -165,7 +166,7 @@ export default function QualityVetting() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </VisualTable>
             </div>
           </div>
         )}
@@ -174,7 +175,7 @@ export default function QualityVetting() {
         <div className="enterprise-card p-6">
           <h3 className="text-base sm:text-lg font-semibold text-text-main mb-4">Vetting & Suppressions Breakdown</h3>
           <div className="overflow-x-auto border border-slate-200 rounded-lg">
-            <table className="enterprise-table w-full">
+            <VisualTable visual={{id:'quality.reasons',data:(qualityData.reasons || [])}} className="enterprise-table w-full">
               <thead className="bg-surface-sec text-text-sec font-semibold border-b border-slate-200 uppercase tracking-wider text-xs">
                 <tr>
                   <th className="px-6 py-4">Classification</th>
@@ -191,7 +192,7 @@ export default function QualityVetting() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </VisualTable>
           </div>
         </div>
       </div>

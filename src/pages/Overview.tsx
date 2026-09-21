@@ -1,3 +1,4 @@
+import DataVisual from '../components/visuals/DataVisual';
 import { LEGACY_LABELS } from '../../contracts/naming';
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
@@ -33,7 +34,7 @@ export default function Overview() {
   ];
   return <PageShell>
     <PageHeader title="Executive Overview" category="Lead-to-Revenue Reporting" description="Lead capture cohorts with outcomes attributed to the selected vendor transactions." />
-    <div className="space-y-6">
+    <div className="space-y-6"><DataVisual id="api.response" data={data} context={{endpoint:"overview"}}/>
       <section role="status" className="enterprise-card p-5 border-amber-300 bg-amber-50">
         <h2 className="font-semibold">Independent reconciliation not completed</h2>
         <p className="text-sm mt-2">These are recorded warehouse values, not verified invoices or cash collections. Join cardinality and source completeness still require live checks.</p>

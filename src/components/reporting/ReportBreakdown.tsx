@@ -1,3 +1,4 @@
+import { VisualTable } from '../visuals/DataVisual';
 import React, { useDeferredValue, useId, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
 import { METRIC_BY_ID, type MetricResult, type Grouping } from '../../../contracts/reporting';
@@ -23,14 +24,14 @@ export default function ReportBreakdown({ rows, grouping, busy, formatValue, ins
     </div>}
     <p className="cx-breakdown-note" id={statusId} role="status" aria-live="polite">{updating ? 'Updating the displayed rows…' : `Showing ${view.first}–${view.last} of ${view.total.toLocaleString('en-GB')} matching rows.`} {rows.length > 0 && 'Search and pagination affect this table only; exports retain the complete report.'}</p>
     <div className="cx-breakdown-scroll" tabIndex={0} role="region" aria-label="Scrollable report breakdown" aria-describedby={statusId} aria-busy={updating}>
-      <table id="report-breakdown-table" className="enterprise-table w-full" aria-label="Report breakdown rows"><caption className="sr-only">Breakdown: {grouping}. Distinct populations may overlap. Percentages are not averaged.</caption>
+      <VisualTable visual={{id:'report.groups',data:(selected.map(item=>item.row)), context:{grouping,note:"Snapshot-bound groups matching the table filters, before pagination. Chart controls do not change report totals."}}} id="report-breakdown-table" className="enterprise-table w-full" aria-label="Report breakdown rows"><caption className="sr-only">Breakdown: {grouping}. Distinct populations may overlap. Percentages are not averaged.</caption>
         <thead><tr>{['Group', 'Metric', 'Value', 'Numerator', 'Denominator', 'Evidence'].map(label => <th key={label} scope="col">{label}</th>)}</tr></thead>
         <tbody>{view.rows.map(({ row, index: originalIndex }) => <tr key={`${row.metricId}:${row.group}:${originalIndex}`}>
           <td>{row.group ?? 'Unspecified'}</td><th scope="row">{METRIC_BY_ID[row.metricId].label}</th><td className="cx-breakdown-number">{formatValue(row)}</td><td className="cx-breakdown-number">{exactNumber(row.numerator)}</td><td className="cx-breakdown-number">{row.denominator === null ? 'Not applicable' : exactNumber(row.denominator)}</td>
           <td><button type="button" className="cx-link-button" disabled={busy || row.calculationStatus === 'UNAVAILABLE'} aria-label={`Inspect ${METRIC_BY_ID[row.metricId].label} records for ${row.group ?? 'Unspecified'}`} onClick={() => inspect(row.metricId, row.group)}>{row.completeness}</button></td>
         </tr>)}
         {!view.rows.length && <tr><td colSpan={6} className="cx-empty-table">{rows.length ? 'No breakdown rows match these table filters.' : grouping === 'none' ? 'Totals-only report. No grouped breakdown was requested.' : 'No grouped records were returned.'}{rows.length > 0 && <button type="button" className="cx-link-button" onClick={clear}>Clear table filters</button>}</td></tr>}</tbody>
-      </table>
+      </VisualTable>
     </div>
     {rows.length > 0 && <footer className="cx-breakdown-footer">
       <div className="cx-inline-actions"><label className="cx-field cx-page-size"><span>Rows per page</span><select aria-label="Rows per page" value={size} onChange={event => { setSize(Number(event.target.value)); setPage(1); }}>{[25,50,100].map(count => <option value={count} key={count}>{count}</option>)}</select></label>{(search || metric) && <button type="button" className="cx-button-secondary" onClick={clear}><X size={14}/>Clear table filters</button>}</div>

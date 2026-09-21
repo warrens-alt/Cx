@@ -64,7 +64,7 @@ export function MetricCompositionDonut({
 
   return (
     <div className="enterprise-card p-5 flex flex-col h-full w-full">
-      <ChartToolbar 
+      <ChartToolbar visualData={data}
         title={title} 
         subtitle={subtitle} 
         auditTitle={auditTitle} 

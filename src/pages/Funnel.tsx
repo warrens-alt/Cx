@@ -1,3 +1,4 @@
+import DataVisual from '../components/visuals/DataVisual';
 import React from 'react';
 import { PageShell } from '../components/PageShell';
 import { useAnalyticsData } from '../lib/useAnalyticsData';
@@ -67,6 +68,7 @@ export default function Funnel() {
         description="Conversion progression, call distribution, and lifecycle analysis."
       />
 
+      <DataVisual id="api.response" data={{stages:funnelData,calls:callData}} context={{endpoint:"funnel"}}/>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="min-h-[450px] flex flex-col">
           <FunnelWaterfall 

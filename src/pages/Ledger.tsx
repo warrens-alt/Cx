@@ -1,3 +1,4 @@
+import { VisualTable } from '../components/visuals/DataVisual';
 import React, { useState, useEffect, useMemo } from 'react';
 import { PageShell } from '../components/PageShell';
 import { formatTableNumber, formatTableCurrency } from '../lib/formatters';
@@ -327,7 +328,7 @@ export default function LedgerPage() {
               <h2 className="font-semibold text-text-main">Model Summary</h2>
             </div>
             <div className="p-0 overflow-auto max-h-[500px]">
-              <table className="min-w-full divide-y divide-slate-200">
+              <VisualTable visual={{id:'legacy.ledger',data:([summary])}} className="min-w-full divide-y divide-slate-200">
                 <tbody className="bg-white divide-y divide-slate-200">
                   <tr className="hover:bg-surface-sec">
                     <td className="px-6 py-3 whitespace-nowrap text-sm font-medium text-text-main">Offernet Accrued Revenue</td>
@@ -398,7 +399,7 @@ export default function LedgerPage() {
                     <td className="px-6 py-3 whitespace-nowrap text-sm text-right text-text-sec font-mono">{formatCurrency(summary.maxOnvestRCFUtilisation)}</td>
                   </tr>
                 </tbody>
-              </table>
+              </VisualTable>
             </div>
           </div>
 
@@ -436,7 +437,7 @@ export default function LedgerPage() {
       )}
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
-        <table className="min-w-full divide-y divide-slate-200">
+        <VisualTable visual={{id:'legacy.ledger',data:(finalLedger)}} className="min-w-full divide-y divide-slate-200">
           <thead className="bg-surface-sec">
             <tr>
               <th className="px-4 py-3.5 text-left text-xs font-semibold text-text-sec uppercase tracking-wider border-b border-slate-200 sticky left-0 bg-surface-sec z-10">Month</th>
@@ -505,7 +506,7 @@ export default function LedgerPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </VisualTable>
       </div>
     </PageShell>
   );

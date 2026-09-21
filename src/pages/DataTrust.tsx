@@ -1,3 +1,4 @@
+import { VisualTable } from '../components/visuals/DataVisual';
 import React, { useState } from 'react';
 import { PageShell } from '../components/PageShell';
 import PageHeader from '../components/PageHeader';
@@ -195,7 +196,7 @@ export default function DataTrust() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-700">
+            <VisualTable visual={{id:'trust.capabilities',data:(vendorCapabilities)}} className="w-full text-left text-sm text-slate-700">
               <thead className="bg-slate-50/80 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
                 <tr>
                   <th className="py-3 px-4">Vendor</th>
@@ -228,7 +229,7 @@ export default function DataTrust() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </VisualTable>
           </div>
         </div>
       )}
@@ -299,7 +300,7 @@ export default function DataTrust() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-700">
+            <VisualTable visual={{id:'trust.multivendor',data:(multiVendorData || [])}} className="w-full text-left text-sm text-slate-700">
               <thead className="bg-slate-50/80 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
                 <tr>
                   <th className="py-3 px-4">Vendor Count Bucket</th>
@@ -334,7 +335,7 @@ export default function DataTrust() {
                   );
                 })}
               </tbody>
-            </table>
+            </VisualTable>
           </div>
         </div>
       )}

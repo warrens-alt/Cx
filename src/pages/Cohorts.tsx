@@ -1,3 +1,4 @@
+import { VisualTable } from '../components/visuals/DataVisual';
 import React, { useState } from 'react';
 import { PageShell } from '../components/PageShell';
 import { formatTableNumber } from '../lib/formatters';
@@ -103,7 +104,7 @@ export default function Cohorts() {
             </span>
           </div>
           <div className="overflow-x-auto p-4">
-            <table className="min-w-full text-sm text-left border-separate border-spacing-1">
+            <VisualTable visual={{id:'cohorts.maturity',data:(cohorts)}} className="min-w-full text-sm text-left border-separate border-spacing-1">
               <thead>
                 <tr>
                   <th className="px-4 py-3 font-semibold text-text-sec uppercase tracking-wider text-xs w-32">Cohort</th>
@@ -154,7 +155,7 @@ export default function Cohorts() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </VisualTable>
           </div>
         </div>
 
@@ -170,7 +171,7 @@ export default function Cohorts() {
             </span>
           </div>
           <div className="overflow-x-auto">
-            <table className="enterprise-table w-full">
+            <VisualTable visual={{id:'cohorts.funnel',data:(cohorts)}} className="enterprise-table w-full">
               <thead className="bg-surface-sec text-text-sec font-semibold border-b border-border-subtle uppercase tracking-wider text-xs">
                 <tr>
                   <th className="px-5 py-3">Cohort</th>
@@ -223,7 +224,7 @@ export default function Cohorts() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </VisualTable>
           </div>
         </div>
       </div>

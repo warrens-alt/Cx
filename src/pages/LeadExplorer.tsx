@@ -1,3 +1,4 @@
+import { VisualTable } from '../components/visuals/DataVisual';
 import React, { useState } from 'react';
 import { PageShell } from '../components/PageShell';
 import { EmptyState } from '../components/EmptyState';
@@ -78,7 +79,7 @@ export default function LeadExplorer() {
               <div className="text-teal font-medium">Loading...</div>
             </div>
           )}
-          <table className="enterprise-table">
+          <VisualTable visual={{id:'records.leads',data:(leads || [])}} className="enterprise-table">
             <thead className="bg-surface-sec text-text-sec font-semibold border-b border-slate-200 uppercase tracking-wider text-xs sticky top-0 z-10 shadow-sm">
               <tr>
                 <th className="px-4 py-3.5">Lead ID</th>
@@ -114,7 +115,7 @@ export default function LeadExplorer() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </VisualTable>
         </div>
         <div className="p-4 border-t border-slate-200 bg-surface-sec text-sm text-text-sec flex justify-between items-center">
           <span>Showing Page {page}</span>
