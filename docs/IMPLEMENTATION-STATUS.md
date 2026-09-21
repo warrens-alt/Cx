@@ -18,6 +18,9 @@ The implementation verifies the signed IAP JWT through google-auth-library. Prot
 - Remove manufactured reconciliation results and the unconditional overview readiness claim.
 - Align overview rate names, preserve filter context in links, and surface API errors explicitly.
 - Add a query byte cap (default 1,000,000,000 bytes per query) and regression tests/CI.
+- Generate request correlation IDs, apply production browser-security headers and reject cross-site analytical POSTs.
+- Bound concurrent analytical work per authenticated subject and server process; require an upstream shared quota for multi-instance deployments.
+- Fail visibly when workspace authentication/configuration fails instead of retaining a compiled tenant fallback.
 
 ## Intentionally withheld pending evidence
 
@@ -25,8 +28,8 @@ Raw-source exports and arbitrary warehouse browsing are disabled. Acquisition ec
 
 ## Remaining validation and implementation
 
-Live warehouse query validation, complete application build, rendered UI testing and deployment verification are required. The full independent reconciliation engine is not implemented; its screen explicitly reports NOT_VERIFIED. Call-join cardinality, repeated HLC records, activation transaction-ID uniqueness, local/UTC source interpretation, actual vendor tariffs and invoice/cash stages still need live evidence and further work. The retained base model is versioned separately; guarded transformations fail if their expected source expressions change. This is a bounded correction, not certification of every dashboard.
+The complete application build and synthetic desktop/mobile UI flows pass; see `AUDIT-2026-09-21.md`. Live warehouse and deployment verification are still required. The read-only warehouse attempt from the audit host failed before any query job because usable credentials were unavailable. The full independent reconciliation engine is not implemented; its screen explicitly reports NOT_VERIFIED. Call-join cardinality, repeated HLC records, activation transaction-ID uniqueness, local/UTC source interpretation, actual vendor tariffs and invoice/cash stages still need live evidence and further work. The retained base model is versioned separately; guarded transformations fail if their expected source expressions change. This is a bounded correction, not certification of every dashboard.
 
 ## Checks
 
-`npm test` runs the actual pure request/permission/integrity helper tests. `npm run lint` checks application TypeScript and `npm run build` performs a separate build. A successful test is not a successful warehouse dry run. No dependency or public-access settings have been changed on the hosted application.
+`npm test` runs the request, permission, contract, HTTP and integrity tests. `npm run lint` checks application TypeScript and `npm run build` performs the production build. CI also compiles Dataform and runs the synthetic browser suite from a committed tooling lock. A successful test is not a successful warehouse dry run. No hosted application, public-access setting or warehouse object was changed by the audit.

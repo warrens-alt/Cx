@@ -34,7 +34,7 @@ The time-to-dial table now has a live API query path and coverage measurements. 
 
 The versioned Evidence Reports still require canonical source adapters, approved identity bridges and a published release. This change does not automatically convert cumulative HLC counters into call events, guessed activation IDs into sale relationships, or expected values into financial ledger deltas. All-vendor activation data, approved rate cards, invoice/collection events and media allocation keys must be supplied by the source owners.
 
-In this implementation session the direct BigQuery connector is administrator-disabled. No production credentials, live source tables, published releases or business approvals were changed. Automated SQL-generation and HTTP tests use explicit fixture metadata/results; browser tests use synthetic API responses. Production source execution and financial reconciliation remain separate checks.
+During the 21 September 2026 audit, the read-only connector was invoked but this host had no usable warehouse credentials. Dataset inventory, all five schema reads and all five aggregate checks returned `CHECK_FAILED` before a BigQuery job ID was created. No live source table, published release or business approval was changed. Automated SQL-generation and HTTP tests use explicit fixture metadata/results; browser tests use synthetic API responses. See `SOURCE-METRIC-COVERAGE.md` for the exact evidence state.
 
 ## Read-only deployment verification
 

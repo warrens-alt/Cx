@@ -47,18 +47,8 @@ Reporting releases also bind the engine source fingerprint. `node scripts/engine
 
 ## Verified implementation state
 
-Implementation commit on `main`: `8d790659b3d61c692b10b5bda039e8c4e6b7eb19`.
-Successful GitHub Actions run: `35492085845` (20 September 2026).
+The original v2 implementation was committed as `8d790659b3d61c692b10b5bda039e8c4e6b7eb19`. The current application-level verification record, remediation tracker and deployment boundary are maintained in `docs/AUDIT-2026-09-21.md`. Route/API lineage is in `docs/SURFACE-COVERAGE.md`, and physical/source-to-metric lineage is in `docs/SOURCE-METRIC-COVERAGE.md`.
 
-- Locked application dependency installation passed.
-- Reporting engine source fingerprint passed.
-- Full configured application TypeScript check passed.
-- All **101 tests** passed: existing guards plus the new report contract, independent fixture, ingestion, identity-bound replay and HTTP tests. Test HTTP principals/repositories are injected only in test code.
-- Production frontend and backend build passed.
-- Dataform compiled **10 table models, 20 assertions and one publication-gate operation**, with no compilation errors. The gate's explicit assertion dependencies were checked. This is compilation, not SQL execution in BigQuery.
-- **18 browser assertions passed**, across 1440×1000 and 390×844 Chromium viewports. The flow was `/reports` → explicit scope → report → evidence drill-down → changed filters → stale-result suppression → missing-release state. Responses were handwritten synthetic fixtures, not live warehouse results. No page runtime errors were captured.
-- Rendered screenshots were inspected at both sizes. The code and source archive were compared byte-for-byte for the initial implementation; subsequent changes fix the explicit Dataform dependency graph.
+The application and verification tool dependency graphs now both have committed lockfiles. CI uses `npm ci` for each. Current local evidence includes TypeScript, contract/HTTP tests, a production build, Dataform compilation/dependency checks and desktop/mobile Playwright flows against handwritten fixtures. Dataform compilation is not SQL execution, and browser fixtures are not a live warehouse query.
 
-Browser plugin was not available in this session; Playwright ran in GitHub Actions. Verification artifacts contain the compiled warehouse graph, synthetic browser result counts, screenshots and the exact tooling dependency lock generated for that run. Tooling direct versions are pinned, but a permanent tooling lockfile is not yet checked into the repository. Application dependency installation uses the existing committed lockfile.
-
-Not executed: live canonical-source ingestion, warehouse bootstrap/publication, real BigQuery fixture SQL, production IAP acceptance, business/source-owner reconciliation, rate-card approval, media allocation or a live production deployment. The new report screen will correctly show **No approved release available** until the required infrastructure, approved canonical inputs and a validated snapshot release are configured. Legacy screens remain unverified.
+Not executed successfully: live canonical-source reads, ingestion, warehouse bootstrap/publication, real BigQuery fixture SQL, production IAP acceptance, business/source-owner reconciliation, rate-card approval, media allocation or a live deployment. The read-only source attempt failed before any BigQuery job was created. Evidence Reports must show **No approved release available** until the required infrastructure, approved canonical inputs and a validated snapshot release exist. Legacy screens remain unverified.

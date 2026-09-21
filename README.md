@@ -4,6 +4,12 @@ The new default `/reports` page uses independently versioned metrics and read-on
 
 `npm run verify` runs type checking, implementation tests and the production build. CI also compiles the Dataform graph and runs desktop/mobile browser tests against explicitly synthetic responses.
 
+Audit and coverage records:
+
+- `docs/AUDIT-2026-09-21.md` — remediation tracker, verification evidence, security/performance assessment and release boundary.
+- `docs/SURFACE-COVERAGE.md` — every reachable UI route and API endpoint with its query/service lineage.
+- `docs/SOURCE-METRIC-COVERAGE.md` — physical sources, required fields/types, v2 facts and all twelve approved metrics.
+
 ---
 
 # ConversionX
@@ -24,6 +30,7 @@ Use Node.js 22. Install locked dependencies with `npm ci`. Configure server-side
 - Tests: `npm test`
 - Type checking: `npm run lint`
 - Build: `npm run build`
+- Dependency advisories: `npm audit`
 - Production: `NODE_ENV=production npm start`
 
 Only `dist/client` is publicly served. Backend artifacts are written to `dist/server`. `PORT` defaults to 3000. `/api/health` is public; analytical routes require verified identity and tenant access.
