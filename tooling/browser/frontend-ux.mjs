@@ -23,6 +23,7 @@ const dist = fs.mkdtempSync(path.join(output,'client-build-'));
 fs.cpSync(sourceDist,dist,{recursive:true});
 const widths = option('--widths', '320,360,390,768,1024,1440,1920').split(',').map(Number);
 const quick = process.argv.includes('--quick');
+const checkOverviewAccessibility = process.argv.includes('--check-overview-accessibility');
 const repeat = Math.max(1, Math.min(10, Number(option('--repeat','1')) || 1));
 const cutoff = '2026-09-20T00:00:00.000Z';
 const core = option('--routes', '/reports,/explore,/vetting,/visuals').split(',');
@@ -139,6 +140,20 @@ async function inspectRoute(route,width,{failure=false,textZoom=false,repetition
     const name=`${route.slice(1)}-${width}${failure?'-error':textZoom?'-text-zoom':''}`;
     if(core.includes(route)||[390,1440].includes(width)){
       record.screenshot=path.join(output,name+'.png');await page.screenshot({path:record.screenshot,fullPage:false});
+    }
+    if(checkOverviewAccessibility&&!failure&&!textZoom&&route==='/overview'){
+      const measure=page.getByRole('combobox',{name:'Daily Capture-Cohort Performance measure',exact:true});
+      check(record.accessibility.unnamedControls.length===0,'Overview visible controls have names in the limited DOM heuristic',record);
+      check(await measure.count()===1,'Overview trend measure has the explicit accessible name',record);
+      const original=await measure.inputValue();
+      const alternate=await measure.locator('option').evaluateAll((options,value)=>options.find(option=>option.value!==value)?.value,original);
+      await measure.selectOption(alternate);
+      check(await measure.inputValue()===alternate,'Named trend measure selector changes the selected measure',record);
+      await measure.scrollIntoViewIfNeeded();
+      record.overviewMeasureScreenshot=path.join(output,`overview-measure-${width}.png`);
+      await page.screenshot({path:record.overviewMeasureScreenshot});
+      await measure.selectOption(original);
+      record.overviewMeasure={name:await measure.getAttribute('aria-label'),original,alternate,restored:await measure.inputValue()};
     }
     if(!failure&&!textZoom&&route==='/explore'&&[390,1440].includes(width)){
       const builder=page.locator('details').filter({has:page.locator('summary').filter({hasText:'Query configuration'})});
