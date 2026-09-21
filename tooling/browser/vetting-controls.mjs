@@ -21,7 +21,7 @@ function aggregate(rows){
   value.withHlc=String(rows.length);value.valid=String(rows.length);value.classTimed=value.classRecorded;value.colourTimed=value.namedColour;
   return {...value,classMeanSeconds:rows.length?'120':null,colourMeanSeconds:rows.length?'180':null};
 }
-function fixture(url){
+export function fixture(url){
   const selected=records.filter(r=>(!url.searchParams.get('classValue')||r.class===url.searchParams.get('classValue'))&&(!url.searchParams.get('colourValue')||r.colour===url.searchParams.get('colourValue')));
   const prior=selected.filter(r=>records.indexOf(r)<4),groups=[];
   const interval=url.searchParams.get('interval')||'day';

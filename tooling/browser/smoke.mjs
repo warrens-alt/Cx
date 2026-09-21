@@ -9,6 +9,8 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import { verifyRestoredFilters } from './filter-controls.mjs';
 import { verifyFrontendOptimisations } from './optimisation-controls.mjs';
+import { verifyRequestStates } from './request-state-controls.mjs';
+import { verifyVisualRefinements } from './visual-refinements.mjs';
 const fixture=JSON.parse(fs.readFileSync('tests/fixtures/reporting-reference.json','utf8'));
 const server=spawn(process.execPath,['dist/server/server.mjs'],{env:{...process.env,NODE_ENV:'production',PORT:'3187',IAP_AUDIENCE:'',CX_REPORTING_DATASET:''},stdio:'pipe'});
 let browser, activePage;
@@ -87,7 +89,7 @@ try{
     slow=false;await page.getByRole('button',{name:'Create snapshot-bound report'}).click();await calls.waitFor();assert.equal(await calls.textContent(),'4');checks++;
     fs.mkdirSync('verification',{recursive:true});await page.screenshot({path:`verification/evidence-${viewport.width}.png`,fullPage:true});
     noRelease=true;await page.reload();await page.getByRole('heading',{name:'No approved release available'}).waitFor();assert.equal(await page.locator('[aria-label="Report results"]').count(),0);checks++;
-    await page.goto('http://127.0.0.1:3187/explore');await page.getByLabel('Measure',{exact:true}).selectOption('sale_rate');
+    await page.goto('http://127.0.0.1:3187/explore');const builder=page.locator('.cx-explore-builder details').first();await builder.waitFor();if(!await builder.evaluate(node=>node.open))await builder.locator('summary').click();await page.getByLabel('Measure',{exact:true}).selectOption('sale_rate');
     await page.getByLabel('Visualisation',{exact:true}).selectOption('table');await page.getByRole('cell',{name:'12.5%',exact:true}).waitFor();checks++;
     assert.equal(await page.getByRole('heading',{level:1}).textContent(),'Data Explorer');checks++;
     assert.equal(await page.getByText('Not additive',{exact:true}).count(),1);checks++;
@@ -105,7 +107,7 @@ try{
     await page.waitForTimeout(250);
     assert.ok(requestCounts['/api/analytics/calls']>requestsBefore,'Reload refetches the active report');checks++;
     await page.getByRole('button',{name:'Report filters',exact:true}).click();await filterPanel.waitFor({state:'hidden'});checks++;
-    await page.getByText('Capture dates: 2026-08-01 to 2026-08-31 · 0 filters',{exact:true}).waitFor();checks++;
+    await page.getByLabel('Applied reporting scope').getByText('Capture dates: 2026-08-01 to 2026-08-31',{exact:true}).waitFor();checks++;
 
     await page.getByRole('heading',{name:/^One-Call Lead Share$/i}).waitFor();checks++;
     assert.equal(await page.getByRole('heading',{level:1}).textContent(),'Call Performance');checks++;
@@ -163,5 +165,7 @@ try{
   checks += await verifyVisualControls(browser, 'http://127.0.0.1:3187');
   checks += await verifyVettingControls(browser, 'http://127.0.0.1:3187');
   checks += await verifyExploreWorkspace(browser, 'http://127.0.0.1:3187');
+  checks += await verifyRequestStates(browser, 'http://127.0.0.1:3187');
+  checks += (await verifyVisualRefinements(browser, 'http://127.0.0.1:3187', 'verification/visual-refinements')).checks;
   fs.writeFileSync('verification/browser.json',JSON.stringify({checks,passed:checks,source:'synthetic API fixtures',liveWarehouseTested:false},null,2));console.log(`${checks} browser assertions passed on desktop and mobile using synthetic responses.`);
 }catch(error){if(activePage&&!activePage.isClosed()){fs.mkdirSync('verification',{recursive:true});await activePage.screenshot({path:'verification/browser-failure.png',fullPage:true});fs.writeFileSync('verification/browser-failure.html',await activePage.content());fs.writeFileSync('verification/browser-failure.json',JSON.stringify({url:activePage.url(),checks,message:String(error),stack:error.stack,headers:await activePage.locator('thead th').allTextContents(),accessibility:await activePage.locator('body').ariaSnapshot()},null,2));}throw error;}finally{if(browser)await browser.close();server.kill('SIGTERM');}

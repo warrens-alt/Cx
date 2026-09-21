@@ -33,6 +33,9 @@ export async function verifyExploreWorkspace(browser,base){
       assert.equal(await page.title(),'ConversionX | Lead & Revenue Analytics');checks++;
       assert.equal(await page.locator('vite-error-overlay').count(),0);checks++;
       assert.equal(urls.at(-1).searchParams.get('clientId'),'default_tenant');checks++;
+      const openBuilder=async()=>{const details=page.locator('.cx-explore-builder details').first();if(await details.count()&&!await details.evaluate(node=>node.open))await details.locator('summary').click();};
+      const openVisual=async()=>{const details=page.getByLabel('Adjust Explore visual',{exact:true});if(!await details.evaluate(node=>node.open))await details.locator('summary').click();};
+      await openBuilder();
       const beforeView=requests;
       await page.getByLabel('Visualisation',{exact:true}).selectOption('table');await table().waitFor();
       assert.equal(await table().locator('tbody tr').count(),25);checks++;
@@ -48,7 +51,7 @@ export async function verifyExploreWorkspace(browser,base){
       assert.equal(requests,beforeView,'Local search, paging and exports issue no analytical query');checks++;
       await page.getByRole('button',{name:'Inspect Group 03',exact:true}).click();await page.getByRole('dialog',{name:'Explore group details',exact:true}).waitFor();checks++;
       await page.keyboard.press('Escape');await page.getByRole('dialog',{name:'Explore group details',exact:true}).waitFor({state:'hidden'});checks++;
-      await page.getByLabel('Minimum reported sample',{exact:true}).fill('999');await page.getByRole('heading',{name:'No matching groups',exact:true}).waitFor();checks++;
+      await openVisual();await page.getByLabel('Minimum reported sample',{exact:true}).fill('999');await page.getByRole('heading',{name:'No matching groups',exact:true}).waitFor();checks++;
       await page.getByRole('button',{name:'Clear local filters',exact:true}).click();await table().getByRole('rowheader',{name:'Group 01',exact:true}).waitFor();checks++;
       await page.getByLabel('Measure',{exact:true}).selectOption('sale_rate');await table().getByRole('columnheader',{name:'Sales / Dialled Leads (%)',exact:true}).waitFor();
       assert.equal(await page.getByText('Not additive',{exact:true}).count(),1);checks++;
@@ -57,19 +60,21 @@ export async function verifyExploreWorkspace(browser,base){
       // Playwright 1.55 follows nested option labels to the enabled select. Assert the actual native option state.
       assert.equal(await page.getByLabel('Visualisation',{exact:true}).locator('option[value="donut"]').evaluate(option=>option.disabled&&option.matches(':disabled')),true);checks++;
       assert.equal(await page.getByLabel('Visualisation',{exact:true}).locator('option[value="line"]').evaluate(option=>option.disabled&&option.matches(':disabled')),true);checks++;
+      await openVisual();
       assert.equal(await page.getByRole('group',{name:'Explore visual type',exact:true}).getByRole('button',{name:'Doughnut',exact:true}).isDisabled(),true);checks++;
       assert.equal(await page.getByRole('group',{name:'Explore visual type',exact:true}).getByRole('button',{name:'Line',exact:true}).isDisabled(),true);checks++;
       await page.getByLabel('Find Explore groups',{exact:true}).fill('Group 02');await table().getByRole('cell',{name:'Unavailable',exact:true}).waitFor();checks++;
       await page.screenshot({path:`verification/explore-unavailable-${viewport.width}.png`,fullPage:true});
-      await page.getByRole('button',{name:/Capture trend Daily lead volume by source/}).click();await page.getByRole('img',{name:'line: Fetched Leads',exact:true}).waitFor();checks++;
+      await page.locator('.cx-preset-disclosure>summary').click();await page.getByRole('button',{name:/Capture trend Daily lead volume by source/}).click();await page.getByRole('img',{name:'line: Fetched Leads',exact:true}).waitFor();checks++;
       assert.equal(urls.at(-1).searchParams.get('secondaryDimension'),'source');checks++;
+      await openVisual();
       assert.equal(await page.getByRole('checkbox').count(),2);checks++;
       const beforeSeries=requests;await page.getByRole('checkbox',{name:'Organic',exact:true}).uncheck();assert.equal(requests,beforeSeries);checks++;
       await page.getByLabel('Explore chart point limit',{exact:true}).selectOption('10');assert.equal(requests,beforeSeries);checks++;
       await page.getByLabel('Visualisation',{exact:true}).selectOption('area');await page.getByRole('img',{name:'area: Fetched Leads',exact:true}).waitFor();checks++;
       await page.reload();await page.getByRole('img',{name:'area: Fetched Leads',exact:true}).waitFor();assert.equal(await page.getByLabel('Second dimension',{exact:true}).inputValue(),'source');checks++;
       await page.screenshot({path:`verification/explore-trends-${viewport.width}.png`,fullPage:true});
-      await page.getByRole('button',{name:/Lead supply Where lead volume comes from/}).click();await page.getByRole('img',{name:'bar: Fetched Leads',exact:true}).waitFor();
+      await openBuilder();await page.locator('.cx-preset-disclosure>summary').click();await page.getByRole('button',{name:/Lead supply Where lead volume comes from/}).click();await page.getByRole('img',{name:'bar: Fetched Leads',exact:true}).waitFor();
       await page.getByLabel('Visualisation',{exact:true}).selectOption('donut');await page.getByRole('img',{name:'donut: Fetched Leads',exact:true}).waitFor();checks++;
       await page.getByLabel('Visualisation',{exact:true}).selectOption('bar');
       slow=true;await page.getByLabel('Measure',{exact:true}).selectOption('sales');await page.getByLabel('Loading Explore results',{exact:true}).waitFor();

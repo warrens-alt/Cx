@@ -8,7 +8,7 @@ const trend=Array.from({length:45},(_,i)=>({date:`2026-08-${String(i%28+1).padSt
 const stats={leads:50,delivered:40,called:30,rpcs:20,sales:10,billableSales:8,activations:6,revenue:900,revPerLead:18,callRate:60,rpcRate:66.6,saleRate:33.3,leadToSaleRate:20,activationRate:60,billableSaleRate:80,deliveryRate:80};
 const sources=[{source:'Synthetic A',...stats},{source:'Synthetic B',...stats}];
 const sourceRoles=['leads','calls','timeToDial','activations','marketing'];
-const fixtures={
+export const fixtures={
   overview:{...stats,trend,sources,attentionItems:[]},timeseries:trend,funnel:[{stage:'Fetched Leads',count:50,rate:100},{stage:'Dialled Leads',count:30,rate:60}],
   calls:{calledLeads:30,totalCalls:50,avgCalls:1.66,oneCallRate:50,repeatCallRate:50,totalDurationHours:1,chart:[{bucket:'1 Call',current:10,rpc:50,sale:10,activation:5,revPerLead:10,totalRevenue:100}],hourly:[{label:'09:00',volume:30,rpcRate:60,saleRate:20,revenue:300}],dayOfWeek:[{day:'Monday',volume:30,rpcRate:60,saleRate:20,revenue:300}],vendors:[{vendor:'Synthetic Vendor',...stats}],dispositions:[{disposition:'Synthetic RPC',volume:30,rpcRate:60,saleRate:20,share:100,revenue:300}]},
   'speed-to-lead':{metrics:[{id:'capture_to_delivery',avg:'8m'},{id:'delivery_to_first_dial',avg:'20m'}],buckets:[{bucket:'0–5',leads:30,rpcCount:20,rpc:66.6,saleCount:10,sale:33.3,billableCount:8,billableRate:80,actCount:6,activation:60,revenue:900,revPerLead:30}]},
@@ -82,7 +82,16 @@ export async function verifyVisualControls(browser,base){let checks=0;const visi
       for(const role of sourceRoles){await page.getByLabel('Visual report source',{exact:true}).selectOption('source-metrics/'+role);await page.getByTestId('visual-view').getByRole('heading',{name:'Selected Source Rows',exact:true}).waitFor();checks++;}
       // Every live table page is exercised with its own API fixture. Unrouted historical models are compile-only.
       const pages=[['/sources','sources.performance'],['/cohorts','cohorts.maturity'],['/quality','quality.grades'],['/validation','validation.checks'],['/data-quality','quality.issues'],['/call-performance','calls.bands'],['/speed-to-lead','speed.bands'],['/routing','routing.depth'],['/consumers','consumers.tiers'],['/revetting','revetting.comparison'],['/data-trust','trust.capabilities'],['/outcomes','outcomes.status'],['/explorer','records.leads']];
-      for(const [route,id] of pages){await page.goto(base+route);const panel=page.locator(`[data-visual-surface="${id}"]`).first();await panel.scrollIntoViewIfNeeded();await panel.getByLabel('Chart type',{exact:true}).waitFor();assert.equal(await page.getByRole('heading',{name:'This page could not be displayed'}).count(),0);checks++;visited.push(route);}
+      for(const [route,id] of pages){
+        await page.goto(base+route);
+        if(id==='records.leads'){
+          const records=page.locator('[data-visual-table="records.leads"]');
+          await records.getByRole('button',{name:'Table only',exact:true}).waitFor();
+          assert.equal(await records.getByRole('button',{name:'Table only',exact:true}).getAttribute('aria-pressed'),'true');checks++;
+          await records.getByRole('button',{name:'Chart + table',exact:true}).click();
+        }
+        const panel=page.locator(`[data-visual-surface="${id}"]`).first();await panel.scrollIntoViewIfNeeded();await panel.getByLabel('Chart type',{exact:true}).waitFor();assert.equal(await page.getByRole('heading',{name:'This page could not be displayed'}).count(),0);checks++;visited.push(route);
+      }
       await page.goto(base+'/data-coverage');const coverage=page.locator('[data-visual-surface="sources.coverage"]');await coverage.scrollIntoViewIfNeeded();await coverage.getByLabel('Plot mode',{exact:true}).selectOption('records');await coverage.getByLabel('Chart dimension',{exact:true}).selectOption('status');await coverage.getByLabel('Chart type',{exact:true}).selectOption('donut');await coverage.getByRole('img',{name:/donut chart/}).waitFor();checks++;
       await page.screenshot({path:`verification/visual-source-coverage-${viewport.width}.png`,fullPage:true});
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));checks++;

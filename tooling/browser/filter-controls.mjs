@@ -34,7 +34,7 @@ export async function verifyRestoredFilters(page, viewport) {
   assert.deepEqual(readFilters().calls, { operator: 'between', min: 3, max: 5 }); checks++;
 
   // Removing a single condition must preserve the other selected conditions.
-  await panel.getByRole('button', { name: 'Remove calls filter', exact: true }).click();
+  await panel.getByRole('button', { name: 'Remove Call attempts filter', exact: true }).click();
   await waitForFilter('calls', undefined);
   await page.waitForFunction(() => document.getElementById('legacy-calls')?.value === '');
   assert.equal(await calls.inputValue(), ''); checks++;
