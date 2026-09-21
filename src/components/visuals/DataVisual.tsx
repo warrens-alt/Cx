@@ -17,8 +17,8 @@ export default function DataVisual({id,data,context,datasets,onInspect}:DataVisu
   </div>;
 }
 /** Keeps the original table and its exact renderer; chart views never parse its displayed text. */
-export function VisualTable({visual,children,...tableProps}:any){
-  const [view,setView]=useState<'both'|'chart'|'table'>('both');
+export function VisualTable({visual,children,initialView='both',...tableProps}:any){
+  const [view,setView]=useState<'both'|'chart'|'table'>(initialView);
   return <div className="cx-visual-table" data-visual-table={visual.id}>
     <nav aria-label="Chart and table view" className="cx-viz-tabs">{(['both','chart','table'] as const).map(mode=><button type="button" key={mode} aria-pressed={view===mode} onClick={()=>setView(mode)}>{mode==='both'?'Chart + table':mode==='chart'?'Chart only':'Table only'}</button>)}</nav>
     {view!=='table'&&<DataVisual {...visual}/>}<div hidden={view==='chart'} className="cx-original-table"><table {...tableProps}>{children}</table></div>

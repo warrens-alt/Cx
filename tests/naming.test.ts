@@ -110,7 +110,7 @@ test('browser title and social metadata match the application brand',()=>{
   assert.doesNotMatch(html,/Production-ready|Revenue Intelligence/);
 });
 test('explorer metric header exposes its denominator to assistive technology',()=>{
-  const source=read('src/pages/Explore.tsx');
+  const source=read('src/components/explore/ExploreResults.tsx');
   assert.match(source,/aria-label="Explorer results"/);
   assert.match(source,/scope="col" className="text-right" aria-label=\{METRICS/);
 });
