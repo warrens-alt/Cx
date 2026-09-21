@@ -39,7 +39,7 @@ const Revetting = React.lazy(() => import('./pages/Revetting'));
 
 
 function Shell() {
-  const location=useLocation(), { clientConfig, selectedClient }=useClient();
+  const location=useLocation(), { clientConfig, selectedClient, loading:clientLoading, error:clientError }=useClient();
   const { startDate, endDate, filters, filterError, resetScope } = useFilters();
   const [mobile,setMobile]=useState(false), [sidebar,setSidebar]=useState(true), [command,setCommand]=useState(false);
   const [filtersOpen,setFiltersOpen]=useState(false);
@@ -70,6 +70,8 @@ function Shell() {
         </div>
       </header>
       <main id="main-content" tabIndex={-1} className="cx-main">
+        {clientError && <section className="cx-scope-error" role="alert"><AlertCircle size={22}/><div><h1>Workspace access is unavailable</h1><p>{clientError}</p><p>No fallback tenant or substitute analytical data is being displayed.</p></div></section>}
+        {clientLoading && <p className="cx-filter-loading" role="status">Verifying workspace access…</p>}
         {!evidencePage && <div className="cx-legacy-bar"><div role="note"><AlertCircle size={16} aria-hidden="true"/><span><strong>Legacy exploration</strong> — not independently reconciled.</span><Link to="/reports">Evidence Reports <ArrowRight size={14}/></Link></div>
           <span className="cx-scope-summary">{filterError ? 'Reporting selection needs attention' : <>Capture dates: {startDate} to {endDate} · {Object.keys(filters || {}).length} filters</>}</span>
           <button type="button" className="cx-button-secondary" aria-expanded={filtersOpen} aria-controls="legacy-filters" onClick={()=>setFiltersOpen(old=>!old)}><SlidersHorizontal size={15}/>Report filters</button>

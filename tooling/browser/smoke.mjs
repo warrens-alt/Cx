@@ -147,6 +147,17 @@ try{
     assert.ok(await page.evaluate(()=>matchMedia('(prefers-reduced-motion: reduce)').matches));checks++;
     assert.deepEqual(errors,[]);checks++;await page.close();
   }
+  {
+    const page=await browser.newPage({viewport:{width:1280,height:800}});activePage=page;const errors=[];page.on('pageerror',error=>errors.push(error.message));
+    await page.route('**/api/**',route=>route.fulfill({status:401,headers:{'x-request-id':'00000000-0000-4000-8000-000000000001'},contentType:'application/json',body:JSON.stringify({success:false,error:'Sign in through the configured identity gateway'})}));
+    await page.goto('http://127.0.0.1:3187/reports');
+    await page.getByRole('heading',{name:'Workspace access is unavailable',exact:true}).waitFor();checks++;
+    await page.getByText('No fallback tenant or substitute analytical data is being displayed.',{exact:true}).waitFor();checks++;
+    assert.equal(await page.getByText('Primary Tenant',{exact:true}).count(),0);checks++;
+    assert.ok((await page.getByRole('alert').first().textContent()).includes('00000000-0000-4000-8000-000000000001'));checks++;
+    assert.deepEqual(errors,[]);checks++;
+    await page.screenshot({path:'verification/authentication-unavailable-1280.png',fullPage:true});await page.close();
+  }
   checks += await verifyFrontendOptimisations(browser, 'http://127.0.0.1:3187');
   checks += await verifySourceApis(browser, 'http://127.0.0.1:3187');
   checks += await verifyVisualControls(browser, 'http://127.0.0.1:3187');

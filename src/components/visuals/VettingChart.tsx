@@ -7,11 +7,12 @@ import { exactLabel, decimal } from '../../lib/visuals/model';
 export interface VettingSeries { key:string; label:string; colour?:string; }
 type Kind='bar'|'column'|'line'|'area'|'pie'|'donut';
 interface Props { title:string; description:string; rows:Record<string,any>[]; series:VettingSeries[]; unit?:string; ordered?:boolean; disjoint?:boolean; initial?:Kind; onSelect?:(name:string)=>void; }
+type ChartPoint = Record<string, any> & { __row:number; __name:string; __v0?:number|null };
 const axis=(v:unknown)=>typeof v==='number'?new Intl.NumberFormat('en-GB',{notation:'compact',maximumFractionDigits:1}).format(v):String(v??'');
 export default function VettingChart({title,description,rows,series,unit='leads',ordered=false,disjoint=false,initial='bar',onSelect}:Props){
   const [kind,setKind]=useState<Kind>(initial),[limit,setLimit]=useState(ordered?366:12),[expanded,setExpanded]=useState(false),[notice,setNotice]=useState('');
   const host=useRef<HTMLElement>(null),pie=kind==='pie'||kind==='donut';
-  const points=useMemo(()=>{
+  const points=useMemo<ChartPoint[]>(()=>{
     const copied=rows.map((r,index)=>({...r,__row:index,__name:String(r.label??r.key??''),...Object.fromEntries(series.map((s,i)=>[`__v${i}`,decimal(r[s.key])===null?null:Number(r[s.key])]))}));
     if(ordered)copied.sort((a,b)=>a.__name.localeCompare(b.__name));
     else copied.sort((a,b)=>compareExactDecimal(String(b[series[0].key]??'-1'),String(a[series[0].key]??'-1')));

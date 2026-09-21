@@ -3,7 +3,10 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@dataform/cli": "3.0.65",
+    "@dataform/cli": "3.0.70",
     "playwright": "1.55.1"
+  },
+  "overrides": {
+    "parse-duration": "2.1.9"
   }
 }

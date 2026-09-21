@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
 
 export interface ClientConfig {
   id: string;
@@ -22,29 +21,16 @@ interface ClientContextType {
   clientId: string;
   setSelectedClient: (id: string) => void;
   loading: boolean;
+  error: string | null;
 }
-
-export const DEFAULT_CLIENT_CONFIG: ClientConfig = {
-  id: 'default_tenant',
-  name: 'Primary Tenant',
-  currency: 'ZAR',
-  timezone: 'Africa/Johannesburg',
-  capabilities: {
-    marketing: true,
-    leads: true,
-    calls: true,
-    sales: true,
-    activation: true,
-    revenue: true,
-  }
-};
 
 const ClientContext = createContext<ClientContextType | undefined>(undefined);
 
 export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [clientConfig, setClientConfig] = useState<ClientConfig>(DEFAULT_CLIENT_CONFIG);
+  const [clientConfig, setClientConfig] = useState<ClientConfig | null>(null);
   const [selectedClient, setSelectedClient] = useState<string>('default_tenant');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -56,7 +42,10 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         try {
           const res = await fetch('/api/analytics/clients');
           if (!res.ok) {
-            throw new Error(`HTTP ${res.status}`);
+            const body = await res.json().catch(() => null);
+            const requestId = res.headers.get('x-request-id');
+            const message = typeof body?.error === 'string' ? body.error : `Workspace request failed (${res.status})`;
+            throw Object.assign(new Error(requestId ? `${message} Request ${requestId}.` : message), { retryable: res.status >= 500 });
           }
           const json = await res.json();
           if (isMounted && json.success && json.data && json.data.length > 0) {
@@ -64,13 +53,21 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             if (json.data[0].id) {
               setSelectedClient(json.data[0].id);
             }
+            setError(null);
+            setLoading(false);
             return;
           }
+          throw Object.assign(new Error('No authorised workspace is available for this account.'), { retryable: false });
         } catch (err) {
           attempts++;
-          if (attempts >= maxAttempts) {
-            // Log as warning rather than error to avoid false positives in health checks
-            console.warn("Using default tenant config fallback:", err);
+          const retryable = (err as { retryable?: boolean }).retryable !== false;
+          if (attempts >= maxAttempts || !retryable) {
+            if (isMounted) {
+              setClientConfig(null);
+              setError(err instanceof Error ? err.message : 'Workspace configuration is unavailable.');
+              setLoading(false);
+            }
+            return;
           } else {
             await new Promise(resolve => setTimeout(resolve, 800));
           }
@@ -78,7 +75,7 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     };
 
-    loadConfig();
+    void loadConfig();
 
     return () => {
       isMounted = false;
@@ -86,12 +83,13 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   return (
-    <ClientContext.Provider value={{ 
-      clientConfig, 
-      selectedClient, 
-      clientId: selectedClient, 
-      setSelectedClient, 
-      loading 
+    <ClientContext.Provider value={{
+      clientConfig,
+      selectedClient,
+      clientId: selectedClient,
+      setSelectedClient,
+      loading,
+      error,
     }}>
       {children}
     </ClientContext.Provider>

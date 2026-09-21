@@ -116,7 +116,7 @@ analyticsRouter.get('/export', asyncRoute(async (req, res) => {
   if (req.query.segment || req.query.chartBucket || req.query.metrics) throw new RequestError('Use explicit supported filters for chart exports; unsupported drill-down parameters are not ignored', 422);
   const result = await exportData({ ...res.locals.scope, grain: scalarString(req.query.grain, 'grain') || 'lead',
     format, limit: boundedInteger(req.query.limit, 10000, 50000, 1) });
-  console.info(JSON.stringify({ action: 'DATA_EXPORT', subject: res.locals.principal.subject, clientId: res.locals.scope.clientId, rowCount: result.metadata.rowCount, truncated: result.metadata.truncated, modelVersion: MODEL_VERSION }));
+  console.info(JSON.stringify({ action: 'DATA_EXPORT', requestId: res.locals.requestId, subject: res.locals.principal.subject, clientId: res.locals.scope.clientId, rowCount: result.metadata.rowCount, truncated: result.metadata.truncated, modelVersion: MODEL_VERSION }));
   if (format === 'json') return res.json({ success: true, metadata: result.metadata, data: result.rows });
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="${res.locals.scope.clientId}_${result.metadata.grain}_export.csv"`);

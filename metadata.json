@@ -1,6 +1,6 @@
 {
-  "name": "ConversionX | Revenue Intelligence",
-  "description": "Production-ready, vendor-centric, BigQuery-backed Lead-to-Revenue Intelligence Platform.",
+  "name": "ConversionX | Lead & Revenue Analytics",
+  "description": "Versioned evidence reporting and explicitly unverified legacy exploration over configured BigQuery sources.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }
