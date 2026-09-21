@@ -50,6 +50,7 @@ export function TrendChart({
       <ChartToolbar visualData={data} title={title} subtitle={subtitle} auditTitle={auditTitle} auditContext={auditContext} auditGrain={auditGrain}>
         {options && (
           <select 
+            aria-label={`${title} measure`}
             value={selectedOption}
             onChange={(e) => onOptionChange?.(e.target.value)}
             className="border border-border-subtle rounded-lg px-3 py-1.5 bg-surface text-xs sm:text-sm font-medium text-text-main outline-none focus:border-teal focus:ring-1 focus:ring-teal/30 transition-all cursor-pointer shadow-2xs"
