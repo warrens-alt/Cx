@@ -1,3 +1,4 @@
+import { createVettingRouter } from './vetting/router';
 import { createSourceRouter } from './bigquery/sourceRouter';
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import * as legacy from './bigquery/queries';
@@ -74,6 +75,7 @@ analyticsRouter.get('/health', asyncRoute(async (_req, res) => {
 analyticsRouter.get('/discovery', requireAdmin, asyncRoute(async (_req, res) => res.json({ success: true, data: await discoverData(getClientConfig(res.locals.scope.clientId)) })));
 analyticsRouter.get('/validation', requireAdmin, (_req, res) => res.json({ success: true, metadata: metadata(res, 'not_verified'), data: validationUnavailable() }));
 analyticsRouter.get('/parameter-coverage', requireAdmin, asyncRoute(async (_req, res) => res.json({success:true,data:await parameterCoverage(res.locals.scope.clientId)})));
+analyticsRouter.use(createVettingRouter());
 analyticsRouter.use(createSourceRouter());
 const reports: [string[], (scope: QueryScope) => Promise<unknown>, boolean][] = [
   [['overview'], getOverviewStats, false], [['funnel'], legacy.getFunnelStats, false], [['quality'], getQualityStats, false],

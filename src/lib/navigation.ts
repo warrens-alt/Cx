@@ -31,6 +31,7 @@ export const NAV_GROUPS = [
       items: [
         { name: PAGE_TITLES['/sources'], path: '/sources', icon: Share2 },
         { name: PAGE_TITLES['/lead-performance'], path: '/lead-performance', icon: Activity },
+        { name: 'Vetting', path: '/vetting', icon: ShieldCheck },
         { name: PAGE_TITLES['/quality'], path: '/quality', icon: CheckCircle2 },
         { name: PAGE_TITLES['/consumers'], path: '/consumers', icon: Repeat },
         { name: PAGE_TITLES['/revetting'], path: '/revetting', icon: Award },
