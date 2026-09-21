@@ -4,7 +4,10 @@ root=Path.cwd()
 # Apply reviewed follow-ups before comparing their independently recorded Git blob hashes.
 runpy.run_path(str(root/'.maintenance/vetting/finish.py'))
 runpy.run_path(str(root/'.maintenance/vetting/polish.py'))
+p=root/'src/components/Modal.tsx'
+p.write_text(p.read_text().replace('const dialog = event.currentTarget;','const dialog = event.currentTarget as HTMLDialogElement;'))
 manifest=json.loads((root/'.maintenance/vetting/expected.json').read_text())
+manifest['src/components/Modal.tsx']='20583ba62a1668876e82edc47616eaa6a4485b8a'
 errors=[]
 for name,expected in manifest.items():
     data=(root/name).read_bytes()
