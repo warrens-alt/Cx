@@ -52,8 +52,6 @@ export const TABLE_VISUALS: Record<string,Spec> = {
   'calls.dispositions':{title:'Recorded Call Dispositions',dimension:'disposition',labels:{volume:'Distinct Transaction IDs',share:'Share of Returned Groups (%)',rpcRate:'RPC Flag Rows / Transaction IDs (%)',saleRate:'Sale Flag Rows / Transaction IDs (%)'}},
   'legacy.audit':{title:'Exported Source Records',dimension:'source',note:'Loaded export records only; any API row cap or upstream incompleteness still applies. No event uniqueness is inferred.'},
   'overview.visuals':{title:'Overview Data',dimension:'date'}, 'funnel.visuals':{title:'Lead Funnel Data',dimension:'stage'},
-  'legacy.journey':{title:'Unverified Legacy Journey Model',dimension:'displayMonth',note:'Unrouted legacy modelling screen; assumptions and historical source mappings are not verified.'},
-  'legacy.ledger':{title:'Unverified Legacy Financial Model',dimension:'displayMonth',note:'Unrouted legacy financial model, not approved revenue, profit or a warehouse financial ledger.'},
 };
 function flatten(row: unknown, prefix='', out: Record<string,unknown> = {}, depth=0): Record<string,unknown> {
   if (!row || typeof row !== 'object' || Array.isArray(row)) return { label: String(row ?? 'Unspecified') };
