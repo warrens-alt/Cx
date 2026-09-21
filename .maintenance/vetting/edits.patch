@@ -1,0 +1,118 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index e23db89..aa6db8f 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -1,7 +1,7 @@
+ name: ConversionX CI
+ on:
+   push:
+-    branches: [main, 'fix/audit-integrity-20260920', 'improvement/frontend-20260920', 'fix/source-api-20260920']
++    branches: [main, 'fix/audit-integrity-20260920', 'improvement/frontend-20260920', 'fix/source-api-20260920', 'feature/vetting-20260921']
+   pull_request:
+     branches: [main]
+   workflow_dispatch:
+diff --git a/server/api.ts b/server/api.ts
+index fa61913..ba8c9ab 100644
+--- a/server/api.ts
++++ b/server/api.ts
+@@ -1,3 +1,4 @@
++import { createVettingRouter } from './vetting/router';
+ import { createSourceRouter } from './bigquery/sourceRouter';
+ import { Router, type Request, type Response, type NextFunction } from 'express';
+ import * as legacy from './bigquery/queries';
+@@ -74,6 +75,7 @@ analyticsRouter.get('/health', asyncRoute(async (_req, res) => {
+ analyticsRouter.get('/discovery', requireAdmin, asyncRoute(async (_req, res) => res.json({ success: true, data: await discoverData(getClientConfig(res.locals.scope.clientId)) })));
+ analyticsRouter.get('/validation', requireAdmin, (_req, res) => res.json({ success: true, metadata: metadata(res, 'not_verified'), data: validationUnavailable() }));
+ analyticsRouter.get('/parameter-coverage', requireAdmin, asyncRoute(async (_req, res) => res.json({success:true,data:await parameterCoverage(res.locals.scope.clientId)})));
++analyticsRouter.use(createVettingRouter());
+ analyticsRouter.use(createSourceRouter());
+ const reports: [string[], (scope: QueryScope) => Promise<unknown>, boolean][] = [
+   [['overview'], getOverviewStats, false], [['funnel'], legacy.getFunnelStats, false], [['quality'], getQualityStats, false],
+diff --git a/src/App.tsx b/src/App.tsx
+index d35d409..d714931 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -12,6 +12,7 @@ import Modal from './components/Modal';
+ const GlobalFilter = React.lazy(() => import('./components/GlobalFilter'));
+ import { PageSkeleton } from './components/Skeleton';
+ const CommandPalette = React.lazy(() => import('./components/CommandPalette'));
++const Vetting = React.lazy(() => import('./pages/Vetting'));
+ const VisualWorkspace = React.lazy(() => import('./pages/VisualWorkspace'));
+ const VersionedReports = React.lazy(() => import('./pages/VersionedReports'));
+ const Overview = React.lazy(() => import('./pages/Overview'));
+@@ -62,7 +63,7 @@ function Shell() {
+       <header className="cx-topbar">
+         <button type="button" className="cx-icon-button cx-mobile-menu" aria-label="Open navigation" onClick={()=>setMobile(true)}><Menu size={20}/></button>
+         <button type="button" className="cx-icon-button cx-desktop-toggle" aria-label={sidebar?'Collapse navigation':'Expand navigation'} aria-expanded={sidebar} onClick={()=>setSidebar(old=>!old)}>{sidebar?<PanelLeftClose size={18}/>:<PanelLeftOpen size={18}/>}</button>
+-        <div className="cx-breadcrumb"><span>{BRAND.name}</span><span aria-hidden="true">/</span><strong>{(location.pathname==='/visuals'?'Visual Workspace':PAGE_TITLES[location.pathname])||'Workspace'}</strong></div>
++        <div className="cx-breadcrumb"><span>{BRAND.name}</span><span aria-hidden="true">/</span><strong>{(location.pathname==='/visuals'?'Visual Workspace':location.pathname==='/vetting'?'Vetting':PAGE_TITLES[location.pathname])||'Workspace'}</strong></div>
+         <div className="cx-topbar-actions"><button type="button" className="cx-search-trigger" aria-label="Search pages" onClick={openSearch}><Search size={16}/><span>Find a page</span><kbd>⌘ K</kbd></button>
+           <button type="button" className="cx-icon-button" aria-label={density==='comfortable'?'Use compact table spacing':'Use comfortable table spacing'} aria-pressed={density==='compact'} onClick={()=>setDensity(old=>old==='compact'?'comfortable':'compact')}><Columns3 size={18}/></button>
+           <span className="cx-workspace-name" title={clientConfig?.name}>{clientConfig?.name||'Workspace'}</span>
+@@ -79,6 +80,7 @@ function Shell() {
+             <Routes>
+               <Route path="/" element={<Navigate to="/reports" replace />} />
+               <Route path="/reports" element={<VersionedReports key={selectedClient} />} />
++              <Route path="/vetting" element={<Vetting key={selectedClient} />} />
+               <Route path="/visuals" element={<VisualWorkspace />} />
+               <Route path="/overview" element={<Overview />} />
+               <Route path="/insights" element={<Insights />} />
+diff --git a/src/lib/navigation.ts b/src/lib/navigation.ts
+index c041966..6fd006d 100644
+--- a/src/lib/navigation.ts
++++ b/src/lib/navigation.ts
+@@ -31,6 +31,7 @@ export const NAV_GROUPS = [
+       items: [
+         { name: PAGE_TITLES['/sources'], path: '/sources', icon: Share2 },
+         { name: PAGE_TITLES['/lead-performance'], path: '/lead-performance', icon: Activity },
++        { name: 'Vetting', path: '/vetting', icon: ShieldCheck },
+         { name: PAGE_TITLES['/quality'], path: '/quality', icon: CheckCircle2 },
+         { name: PAGE_TITLES['/consumers'], path: '/consumers', icon: Repeat },
+         { name: PAGE_TITLES['/revetting'], path: '/revetting', icon: Award },
+diff --git a/tooling/browser/smoke.mjs b/tooling/browser/smoke.mjs
+index 41084eb..51414fa 100644
+--- a/tooling/browser/smoke.mjs
++++ b/tooling/browser/smoke.mjs
+@@ -1,3 +1,4 @@
++import { verifyVettingControls } from './vetting-controls.mjs';
+ import { verifyVisualControls } from './visual-controls.mjs';
+ import { verifySourceApis } from './source-api-controls.mjs';
+ // Browser assertions against handwritten fixtures. This does not certify live warehouse accuracy.
+@@ -148,5 +149,6 @@ try{
+   checks += await verifyFrontendOptimisations(browser, 'http://127.0.0.1:3187');
+   checks += await verifySourceApis(browser, 'http://127.0.0.1:3187');
+   checks += await verifyVisualControls(browser, 'http://127.0.0.1:3187');
++  checks += await verifyVettingControls(browser, 'http://127.0.0.1:3187');
+   fs.writeFileSync('verification/browser.json',JSON.stringify({checks,passed:checks,source:'synthetic API fixtures',liveWarehouseTested:false},null,2));console.log(`${checks} browser assertions passed on desktop and mobile using synthetic responses.`);
+ }catch(error){if(activePage&&!activePage.isClosed()){fs.mkdirSync('verification',{recursive:true});await activePage.screenshot({path:'verification/browser-failure.png',fullPage:true});fs.writeFileSync('verification/browser-failure.html',await activePage.content());fs.writeFileSync('verification/browser-failure.json',JSON.stringify({url:activePage.url(),checks,message:String(error),stack:error.stack,headers:await activePage.locator('thead th').allTextContents(),accessibility:await activePage.locator('body').ariaSnapshot()},null,2));}throw error;}finally{if(browser)await browser.close();server.kill('SIGTERM');}
+diff --git a/server/vetting/service.ts b/server/vetting/service.ts
+--- a/server/vetting/service.ts
++++ b/server/vetting/service.ts
+@@ -38,10 +38,16 @@
+     }
+   }
+   if(raw.diagnostics.length!==2)throw new RequestError('Vetting diagnostics missing',502);
+-  for(const [index,period]of ['current','previous'].entries()){
+-    const d=raw.diagnostics[index];if(d.period!==period)throw new RequestError('Invalid diagnostic period',502);
++  const diagnostics = ['current','previous'].map(period=>{
++    const matches=raw.diagnostics.filter((d:any)=>d?.period===period);
++    if(matches.length!==1)throw new RequestError('Invalid or duplicate diagnostic period',502);
++    return matches[0];
++  });
++  for(const d of diagnostics){
+     for(const key of ['sourceRows','missingIdRows','conflictingLeads','conflictingRows','duplicateRowsCollapsed','eligibleUniqueLeads'])count(d[key]);
+     if(BigInt(d.missingIdRows)+BigInt(d.conflictingRows)+BigInt(d.duplicateRowsCollapsed)+BigInt(d.eligibleUniqueLeads)!==BigInt(d.sourceRows))throw new RequestError('Vetting source exclusions do not reconcile',502);
++    const total=d.period==='current'?current:previous;
++    if(BigInt(total.leads!)>BigInt(d.eligibleUniqueLeads))throw new RequestError('Included leads exceed source eligibility',502);
+   }
+   const timing=raw.timing.map((r:any)=>{
+     if(!['Class','Colour'].includes(r.kind))throw new RequestError('Invalid timing group',502);
+@@ -52,7 +58,7 @@
+     const expected=current[kind==='Class'?'classTimed':'colourTimed'];const row=timing.find((r:any)=>r.kind===kind);
+     if(expected!==null&&BigInt(row?.sample??'0')!==BigInt(expected))throw new RequestError('Timing sample does not reconcile',502);
+   }
+-  return {current,previous,groups,diagnostics:raw.diagnostics as VettingReport['diagnostics'],timing};
++  return {current,previous,groups,diagnostics:diagnostics as VettingReport['diagnostics'],timing};
+ }
+ export async function getVettingReport(input: VettingInput, access?: SourceAccess): Promise<VettingReport> {
+   const scope=vettingScope(input),client=getClientConfig(scope.clientId);
