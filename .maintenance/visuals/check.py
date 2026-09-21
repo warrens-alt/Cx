@@ -1,9 +1,15 @@
 from pathlib import Path
 import hashlib, json, subprocess
 BASE = 'a30d394c05da753617187cc17d2f41d46aff76a4'
-subprocess.run(['git','apply','--unidiff-zero','.maintenance/visuals/browser.patch'],check=True)
+for patch in ['browser.patch','corrections.patch']:
+    subprocess.run(['git','apply','--unidiff-zero','.maintenance/visuals/'+patch],check=True)
 manifest = json.loads(Path('.maintenance/visuals/expected.json').read_text())
-manifest['tooling/browser/visual-controls.mjs'] = 'ead7b925acf450f94e3f96d667a24e012a6b0e01'
+manifest.update({
+    'tooling/browser/visual-controls.mjs': 'ead7b925acf450f94e3f96d667a24e012a6b0e01',
+    'src/lib/visuals/datasets.ts': 'd535a32ffa96a19eec72ccb2a014168ba59f1a65',
+    'src/pages/SourceAnalysis.tsx': 'd3fd9718a4c7279b24078a321ea7b4f70a75c855',
+    'tests/visualisation.test.ts': 'd69a6b1a6bb49287416f464f0cc3fb80ebb87489'
+})
 errors = []
 for name, expected in manifest.items():
     data = Path(name).read_bytes()

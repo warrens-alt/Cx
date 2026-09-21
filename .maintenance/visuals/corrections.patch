@@ -1,0 +1,83 @@
+diff --git a/src/lib/visuals/datasets.ts b/src/lib/visuals/datasets.ts
+--- a/src/lib/visuals/datasets.ts
++++ b/src/lib/visuals/datasets.ts
+@@ -78 +78 @@
+-  const preferred=['group','source','vendor','medium','cohort','date','bucket','label','name','stage','tier','segment','partner','reason','status','displayMonth'];
++  const preferred=['group','date','capture_date','cohort','month','week','source','vendor','medium','bucket','label','name','stage','tier','segment','partner','reason','status','displayMonth'];
+diff --git a/src/pages/SourceAnalysis.tsx b/src/pages/SourceAnalysis.tsx
+--- a/src/pages/SourceAnalysis.tsx
++++ b/src/pages/SourceAnalysis.tsx
+@@ -21,27 +21,2 @@
+-  if (loading) {
+-    return (
+-      <PageShell>
+-        <TableSkeleton />
+-      </PageShell>
+-    );
+-  }
+-
+-  if (!sourceData || sourceData.length === 0) {
+-    return (
+-      <PageShell>
+-        <PageHeader title="Source Analysis" />
+-        <EmptyState message="Configure BigQuery in settings or adjust your date filters." />
+-      </PageShell>
+-    );
+-  }
+-
+-  const sortedByVolume = [...sourceData].sort((a: any, b: any) => b.leads - a.leads);
+-  const sortedBySaleRate = [...sourceData].sort((a: any, b: any) => b.saleRate - a.saleRate);
+-  const sortedByRevPerLead = [...sourceData].sort((a: any, b: any) => b.revPerLead - a.revPerLead);
+-
+-  const topVolume = sortedByVolume[0];
+-  const topConversion = sortedBySaleRate[0];
+-  const topYield = sortedByRevPerLead[0];
+-
+-  const totalLeads = sourceData.reduce((sum: number, s: any) => sum + (s.leads || 0), 0);
+-
++  // Keep hook order stable while the API moves between loading, data and empty states.
++  const sortedByVolume = React.useMemo(() => [...(sourceData || [])].sort((a: any, b: any) => b.leads - a.leads), [sourceData]);
+@@ -58,0 +34,27 @@
++
++
++  if (loading) {
++    return (
++      <PageShell>
++        <TableSkeleton />
++      </PageShell>
++    );
++  }
++
++  if (!sourceData || sourceData.length === 0) {
++    return (
++      <PageShell>
++        <PageHeader title="Source Analysis" />
++        <EmptyState message="Configure BigQuery in settings or adjust your date filters." />
++      </PageShell>
++    );
++  }
++
++  const sortedBySaleRate = [...sourceData].sort((a: any, b: any) => b.saleRate - a.saleRate);
++  const sortedByRevPerLead = [...sourceData].sort((a: any, b: any) => b.revPerLead - a.revPerLead);
++
++  const topVolume = sortedByVolume[0];
++  const topConversion = sortedBySaleRate[0];
++  const topYield = sortedByRevPerLead[0];
++
++  const totalLeads = sourceData.reduce((sum: number, s: any) => sum + (s.leads || 0), 0);
+diff --git a/tests/visualisation.test.ts b/tests/visualisation.test.ts
+--- a/tests/visualisation.test.ts
++++ b/tests/visualisation.test.ts
+@@ -124,0 +125,12 @@
++
++test('generic date-bearing report arrays prefer a temporal dimension for charts',()=>{
++  const d=responseDatasets([{date:'2026-08-01',source:'A',leads:5}], 'overview.trend')[0];
++  assert.equal(d.defaultDimension,'date');assert.equal(d.dimensions[0].ordered,true);
++  assert.equal(chartAllowed('line',d.dimensions[0],'values',false),true);
++});
++test('source-analysis hooks run before loading and empty-state branches',()=>{
++  const source=fs.readFileSync('src/pages/SourceAnalysis.tsx','utf8');
++  const branch=source.indexOf('  if (loading)');
++  assert.ok(source.indexOf('React.useState')<branch);
++  assert.ok(source.lastIndexOf('React.useMemo')<branch);
++});
