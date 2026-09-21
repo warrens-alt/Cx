@@ -54,8 +54,11 @@ export async function verifyExploreWorkspace(browser,base){
       assert.equal(await page.getByText('Not additive',{exact:true}).count(),1);checks++;
       assert.ok((await table().locator('tbody').textContent()).includes('12.5%'));checks++;
       assert.equal(await page.getByText('1,250%',{exact:true}).count(),0);checks++;
-      assert.equal(await page.getByLabel('Visualisation',{exact:true}).locator('option[value="donut"]').isDisabled(),true);checks++;
-      assert.equal(await page.getByLabel('Visualisation',{exact:true}).locator('option[value="line"]').isDisabled(),true);checks++;
+      // Playwright 1.55 follows nested option labels to the enabled select. Assert the actual native option state.
+      assert.equal(await page.getByLabel('Visualisation',{exact:true}).locator('option[value="donut"]').evaluate(option=>option.disabled&&option.matches(':disabled')),true);checks++;
+      assert.equal(await page.getByLabel('Visualisation',{exact:true}).locator('option[value="line"]').evaluate(option=>option.disabled&&option.matches(':disabled')),true);checks++;
+      assert.equal(await page.getByRole('group',{name:'Explore visual type',exact:true}).getByRole('button',{name:'Doughnut',exact:true}).isDisabled(),true);checks++;
+      assert.equal(await page.getByRole('group',{name:'Explore visual type',exact:true}).getByRole('button',{name:'Line',exact:true}).isDisabled(),true);checks++;
       await page.getByLabel('Find Explore groups',{exact:true}).fill('Group 02');await table().getByRole('cell',{name:'Unavailable',exact:true}).waitFor();checks++;
       await page.screenshot({path:`verification/explore-unavailable-${viewport.width}.png`,fullPage:true});
       await page.getByRole('button',{name:/Capture trend Daily lead volume by source/}).click();await page.getByRole('img',{name:'line: Fetched Leads',exact:true}).waitFor();checks++;
@@ -87,7 +90,7 @@ export async function verifyExploreWorkspace(browser,base){
       await page.screenshot({path:`verification/explore-overview-${viewport.width}.png`,fullPage:true});
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Explore must fit the viewport');checks++;
       assert.deepEqual(errors,[]);checks++;
-    }catch(error){fs.mkdirSync('verification',{recursive:true});await page.screenshot({path:`verification/explore-failure-${viewport.width}.png`,fullPage:true});fs.writeFileSync(`verification/explore-failure-${viewport.width}.json`,JSON.stringify({message:String(error),stack:error.stack,url:page.url(),requests,urls:urls.map(u=>u.toString()),errors,checks,body:await page.locator('body').innerText()},null,2));throw error;}
+    }catch(error){fs.mkdirSync('verification',{recursive:true});await page.screenshot({path:`verification/explore-failure-${viewport.width}.png`,fullPage:true});fs.writeFileSync(`verification/explore-failure-${viewport.width}.html`,await page.content());fs.writeFileSync(`verification/explore-failure-${viewport.width}.json`,JSON.stringify({message:String(error),stack:error.stack,url:page.url(),requests,urls:urls.map(u=>u.toString()),errors,checks,body:await page.locator('body').innerText()},null,2));throw error;}
     finally{await page.close();}
   }
   fs.writeFileSync('verification/explore-browser.json',JSON.stringify({checks,passed:checks,source:'synthetic API fixtures',liveWarehouseTested:false},null,2));return checks;
