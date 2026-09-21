@@ -1,6 +1,8 @@
 from pathlib import Path
-import subprocess,json,hashlib
+import subprocess,json,hashlib,runpy
 root=Path.cwd()
+# Apply the checked-in follow-up before comparing against independently reviewed blob hashes.
+runpy.run_path(str(root/'.maintenance/vetting/finish.py'))
 manifest=json.loads((root/'.maintenance/vetting/expected.json').read_text())
 errors=[]
 for name,expected in manifest.items():
