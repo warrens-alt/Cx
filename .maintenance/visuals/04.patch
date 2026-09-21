@@ -1,0 +1,255 @@
+diff --git a/src/lib/visuals/model.ts b/src/lib/visuals/model.ts
+new file mode 100644
+index 0000000..a4300db
+--- /dev/null
++++ b/src/lib/visuals/model.ts
+@@ -0,0 +1,96 @@
++/** Presentation-only datasets. Never read formatted DOM cells or derive warehouse totals here. */
++import { compareExactDecimal } from '../breakdown';
++export type VisualKind = 'bar' | 'column' | 'line' | 'area' | 'scatter' | 'donut' | 'heatmap';
++export interface Dimension { key: string; label: string; ordered?: boolean; }
++export interface Measure { key: string; label: string; unit: string; }
++export interface VisualDataset {
++  id: string; title: string; rows: Record<string, unknown>[];
++  dimensions: Dimension[]; measures: Measure[]; note: string;
++  /** Only returned rows are visualised. No implicit sum/mean/distinct aggregation of measures. */
++  source?: string; defaultDimension?: string; defaultMeasure?: string;
++}
++export interface VisualSettings { dimension: string; measure: string; compare: string; mode: 'values' | 'records'; search: string; sort: 'source' | 'label' | 'ascending' | 'descending'; offset: number; limit: number; separateAxes?: boolean; }
++export interface VisualPoint { key: string; label: string; exact: string | null; compareExact: string | null; value: number | null; comparison: number | null; rowIndex: number | null; }
++const scalar = (v: unknown): unknown => v && typeof v === 'object' && 'value' in v ? (v as {value: unknown}).value : v;
++export function field(row: Record<string, unknown>, key: string): unknown {
++  if (Object.hasOwn(row, key)) return scalar(row[key]);
++  let value: any = row;
++  for (const part of key.split('.')) { if (!value || typeof value !== 'object' || !Object.hasOwn(value, part)) return null; value = value[part]; }
++  return scalar(value);
++}
++export function decimal(value: unknown): string | null {
++  value = scalar(value);
++  if (typeof value === 'number') return Number.isFinite(value) ? expandNumber(value) : null;
++  if (typeof value !== 'string') return null;
++  const s = value.trim();
++  return s.length <= 512 && /^[+-]?\d+(?:\.\d+)?$/.test(s) ? s : null;
++}
++function expandNumber(value: number): string {
++  const s = String(value);
++  if (!/[eE]/.test(s)) return s;
++  const [base, exp] = s.toLowerCase().split('e'), negative = base.startsWith('-'), digits = base.replace(/[-.]/g, '');
++  const point = (base.replace('-', '').split('.')[0].length) + Number(exp);
++  const plain = point <= 0 ? '0.' + '0'.repeat(-point) + digits : point >= digits.length ? digits + '0'.repeat(point - digits.length) : digits.slice(0, point) + '.' + digits.slice(point);
++  return (negative ? '-' : '') + plain;
++}
++export function labelValue(v: unknown): string {
++  v = scalar(v);
++  if (v === null || v === undefined || v === '') return 'Unspecified';
++  if (typeof v === 'boolean') return v ? 'Recorded yes' : 'Recorded no';
++  return typeof v === 'object' ? 'Structured value' : String(v);
++}
++export function exactLabel(value: string | null): string {
++  if (value === null) return 'Unavailable';
++  const [whole, fraction] = value.split('.');
++  return whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (fraction !== undefined ? '.' + fraction : '');
++}
++/** Chart geometry uses finite doubles only; exact strings are retained in tooltips and exports. */
++export function plotCoordinate(exact: string | null): number | null {
++  if (exact === null) return null;
++  const n = Number(exact); return Number.isFinite(n) ? n : null;
++}
++export function graphPoints(dataset: VisualDataset, input: VisualSettings) {
++  const dimension = dataset.dimensions.find(d => d.key === input.dimension) || dataset.dimensions[0];
++  const metric = dataset.measures.find(m => m.key === input.measure) || dataset.measures[0];
++  const comparison = dataset.measures.find(m => m.key === input.compare && (input.separateAxes || m.unit === metric?.unit) && m.key !== metric?.key);
++  const term = input.search.trim().toLocaleLowerCase('en-GB');
++  let points: VisualPoint[] = [];
++  let excluded = 0;
++  if (input.mode === 'records' || !metric) {
++    const counts = new Map<string, number>();
++    for (const row of dataset.rows) { const label = dimension ? labelValue(field(row, dimension.key)) : 'Returned records'; if (!term || label.toLocaleLowerCase('en-GB').includes(term)) counts.set(label, (counts.get(label) || 0) + 1); }
++    points = [...counts].map(([label, count], index) => ({ key: String(index), label, exact: String(count), compareExact: null, value: count, comparison: null, rowIndex: null }));
++  } else {
++    dataset.rows.forEach((row, index) => {
++      const label = dimension ? labelValue(field(row, dimension.key)) : `Row ${index + 1}`;
++      if (term && !label.toLocaleLowerCase('en-GB').includes(term)) return;
++      const exact = decimal(field(row, metric.key)), compareExact = comparison ? decimal(field(row, comparison.key)) : null;
++      const value = plotCoordinate(exact); if (value === null) excluded++;
++      points.push({ key: String(index), label, exact, compareExact, value, comparison: plotCoordinate(compareExact), rowIndex: index });
++    });
++  }
++  const collator = new Intl.Collator('en-GB', { numeric: true });
++  if (input.sort !== 'source') points.sort((a, b) => {
++    if (input.sort === 'label') return collator.compare(a.label, b.label) || Number(a.key) - Number(b.key);
++    if (a.exact === null || b.exact === null) return a.exact === b.exact ? 0 : a.exact === null ? 1 : -1;
++    return compareExactDecimal(a.exact, b.exact) * (input.sort === 'descending' ? -1 : 1) || Number(a.key) - Number(b.key);
++  });
++  const limit = [10, 25, 50, 100, 250].includes(input.limit) ? input.limit : 25;
++  const offset = Number.isFinite(input.offset) ? Math.max(0, Math.min(Math.max(0, points.length - limit), Math.floor(input.offset))) : 0;
++  return { points: points.slice(offset, offset + limit), all: points, total: points.length, offset, limit, excluded,
++    metric: input.mode === 'records' || !metric ? { key: '__records', label: 'Returned Record Count', unit: 'returned records' } : metric,
++    comparison: input.mode === 'records' ? undefined : comparison, dimension, mode: input.mode === 'records' || !metric ? 'records' : 'values',
++    imprecise: points.some(p => p.exact !== null && (p.exact.replace(/[-+.]/g, '').length > 14 || Math.abs(Number(p.exact)) > Number.MAX_SAFE_INTEGER || p.value === null)),
++  };
++}
++export function chartAllowed(kind: VisualKind, dimension: Dimension | undefined, mode: string, compared: boolean): boolean {
++  if (kind === 'donut') return mode === 'records' && !compared;
++  if (kind === 'scatter') return mode === 'values' && compared;
++  if (kind === 'line' || kind === 'area') return !!dimension?.ordered;
++  return true;
++}
++export function plotCsv(points: VisualPoint[], metric: Measure, comparison: Measure | undefined, dataset: VisualDataset): string {
++  const escape = (v: unknown) => { const s = String(v ?? ''); const safe = decimal(s) === null && /^[\s\uFEFF]*[=+\-@]/.test(s) ? `'${s}` : s; return '"' + safe.replace(/"/g, '""') + '"'; };
++  const headers = ['Label', metric.label, ...(comparison ? [comparison.label] : []), 'Dataset', 'Scope note'];
++  return '\uFEFF' + [headers, ...points.map(p => [p.label, p.exact, ...(comparison ? [p.compareExact] : []), dataset.title, dataset.note])].map(row => row.map(escape).join(',')).join('\r\n');
++}
+diff --git a/src/pages/Acquisition.tsx b/src/pages/Acquisition.tsx
+index b7de5d7..1ec602d 100644
+--- a/src/pages/Acquisition.tsx
++++ b/src/pages/Acquisition.tsx
+@@ -0,0 +1 @@
++import { VisualTable } from '../components/visuals/DataVisual';
+@@ -13 +14 @@ export default function Acquisition(){
+-      <section className="enterprise-card p-5"><h2 className="font-semibold mb-3">By Media Channel</h2><div className="overflow-x-auto"><table className="enterprise-table w-full" aria-label="Media channel metrics"><thead><tr><th scope="col">Channel</th>{data.metrics.map((m:any)=><th scope="col" key={m.id}>{m.label}</th>)}</tr></thead><tbody>
++      <section className="enterprise-card p-5"><h2 className="font-semibold mb-3">By Media Channel</h2><div className="overflow-x-auto"><VisualTable visual={{id:'media.groups',data:(data.groups)}} className="enterprise-table w-full" aria-label="Media channel metrics"><thead><tr><th scope="col">Channel</th>{data.metrics.map((m:any)=><th scope="col" key={m.id}>{m.label}</th>)}</tr></thead><tbody>
+@@ -16 +17 @@ export default function Acquisition(){
+-      </tbody></table></div></section>
++      </tbody></VisualTable></div></section>
+diff --git a/src/pages/AdminValidation.tsx b/src/pages/AdminValidation.tsx
+index c0a1ecd..8338e69 100644
+--- a/src/pages/AdminValidation.tsx
++++ b/src/pages/AdminValidation.tsx
+@@ -0,0 +1 @@
++import { VisualTable } from '../components/visuals/DataVisual';
+@@ -10 +11 @@ export default function AdminValidation() {
+-      <div className="overflow-x-auto"><table className="enterprise-table w-full"><thead><tr><th>Metric</th><th>Status</th><th>Evidence</th></tr></thead><tbody>
++      <div className="overflow-x-auto"><VisualTable visual={{id:'validation.checks',data:(data?.metrics || [])}} className="enterprise-table w-full"><thead><tr><th>Metric</th><th>Status</th><th>Evidence</th></tr></thead><tbody>
+@@ -12 +13 @@ export default function AdminValidation() {
+-      </tbody></table></div>
++      </tbody></VisualTable></div>
+diff --git a/src/pages/CallPerformance.tsx b/src/pages/CallPerformance.tsx
+index c61ad23..9722eb2 100644
+--- a/src/pages/CallPerformance.tsx
++++ b/src/pages/CallPerformance.tsx
+@@ -0,0 +1 @@
++import { VisualTable } from '../components/visuals/DataVisual';
+@@ -14,3 +15,3 @@ const pct = (v: unknown) => v === null || v === undefined ? 'Unavailable' : numb
+-function Table({ headings, rows }: { headings: string[]; rows: (string | number)[][] }) {
+-  return <div className="overflow-x-auto"><table className="enterprise-table w-full"><thead><tr>{headings.map(h => <th key={h} scope="col">{h}</th>)}</tr></thead>
+-    <tbody>{rows.map((row, i) => <tr key={i}>{row.map((cell,j) => <td key={j}>{cell}</td>)}</tr>)}{!rows.length && <tr><td colSpan={headings.length}>No records returned for this view.</td></tr>}</tbody></table></div>;
++function Table({ headings, rows, visual }: { headings: string[]; rows: (string | number)[][]; visual: any }) {
++  return <div className="overflow-x-auto"><VisualTable visual={visual} className="enterprise-table w-full"><thead><tr>{headings.map(h => <th key={h} scope="col">{h}</th>)}</tr></thead>
++    <tbody>{rows.map((row, i) => <tr key={i}>{row.map((cell,j) => <td key={j}>{cell}</td>)}</tr>)}{!rows.length && <tr><td colSpan={headings.length}>No records returned for this view.</td></tr>}</tbody></VisualTable></div>;
+@@ -45 +46 @@ export default function CallPerformance() {
+-        <section className="enterprise-card p-5"><h2 className="font-semibold mb-3">Lead-Level Outcomes</h2><Table headings={['Call-Attempt Band','Lead Records','RPC / Leads in Band (%)','Sales / Leads in Band (%)','Activations / Leads in Band (%)','Recorded Revenue / Lead','Recorded Revenue']}
++        <section className="enterprise-card p-5"><h2 className="font-semibold mb-3">Lead-Level Outcomes</h2><Table visual={{id:'calls.bands',data:bands}} headings={['Call-Attempt Band','Lead Records','RPC / Leads in Band (%)','Sales / Leads in Band (%)','Activations / Leads in Band (%)','Recorded Revenue / Lead','Recorded Revenue']}
+@@ -50 +51 @@ export default function CallPerformance() {
+-        <div className="grid lg:grid-cols-2 gap-6">{[['hourly','First-Dial Hour','label'],['dayOfWeek','First-Dial Weekday','day']].map(([key,title,label]) => <section key={key} className="enterprise-card p-5"><h2 className="font-semibold mb-3">{title}</h2><Table headings={[title,'Dialled Leads','RPC / Dialled Leads (%)','Sales / Dialled Leads (%)','Recorded Revenue']}
++        <div className="grid lg:grid-cols-2 gap-6">{[['hourly','First-Dial Hour','label'],['dayOfWeek','First-Dial Weekday','day']].map(([key,title,label]) => <section key={key} className="enterprise-card p-5"><h2 className="font-semibold mb-3">{title}</h2><Table visual={{id:key==='hourly'?'calls.hourly':'calls.weekdays',data:data[key]||[]}} headings={[title,'Dialled Leads','RPC / Dialled Leads (%)','Sales / Dialled Leads (%)','Recorded Revenue']}
+@@ -57 +58 @@ export default function CallPerformance() {
+-          <Table headings={['Vendor','Fetched Leads','Dialled Transaction Rows','Attempts / Dialled Row','One-Call Rows / Dialled Rows (%)','RPC Flag Rows / Dialled Rows (%)','Sale Flag Rows / Dialled Rows (%)','Recorded Revenue / Dialled Row']}
++          <Table visual={{id:'calls.vendors',data:vendors}} headings={['Vendor','Fetched Leads','Dialled Transaction Rows','Attempts / Dialled Row','One-Call Rows / Dialled Rows (%)','RPC Flag Rows / Dialled Rows (%)','Sale Flag Rows / Dialled Rows (%)','Recorded Revenue / Dialled Row']}
+@@ -62 +63 @@ export default function CallPerformance() {
+-          <Table headings={['Disposition','Distinct Transaction IDs','Share of Returned Groups (%)','RPC Flag Rows / Transaction IDs (%)','Sale Flag Rows / Transaction IDs (%)','Recorded Revenue']}
++          <Table visual={{id:'calls.dispositions',data:data.dispositions||[]}} headings={['Disposition','Distinct Transaction IDs','Share of Returned Groups (%)','RPC Flag Rows / Transaction IDs (%)','Sale Flag Rows / Transaction IDs (%)','Recorded Revenue']}
+diff --git a/src/pages/Cohorts.tsx b/src/pages/Cohorts.tsx
+index 90f5d59..63df604 100644
+--- a/src/pages/Cohorts.tsx
++++ b/src/pages/Cohorts.tsx
+@@ -0,0 +1 @@
++import { VisualTable } from '../components/visuals/DataVisual';
+@@ -106 +107 @@ export default function Cohorts() {
+-            <table className="min-w-full text-sm text-left border-separate border-spacing-1">
++            <VisualTable visual={{id:'cohorts.maturity',data:(cohorts)}} className="min-w-full text-sm text-left border-separate border-spacing-1">
+@@ -157 +158 @@ export default function Cohorts() {
+-            </table>
++            </VisualTable>
+@@ -173 +174 @@ export default function Cohorts() {
+-            <table className="enterprise-table w-full">
++            <VisualTable visual={{id:'cohorts.funnel',data:(cohorts)}} className="enterprise-table w-full">
+@@ -226 +227 @@ export default function Cohorts() {
+-            </table>
++            </VisualTable>
+diff --git a/src/pages/ConsumerReentry.tsx b/src/pages/ConsumerReentry.tsx
+index 008fe78..c427c21 100644
+--- a/src/pages/ConsumerReentry.tsx
++++ b/src/pages/ConsumerReentry.tsx
+@@ -0,0 +1 @@
++import { VisualTable } from '../components/visuals/DataVisual';
+@@ -148 +149 @@ export default function ConsumerReentry() {
+-            <table className="w-full text-left text-sm text-slate-700">
++            <VisualTable visual={{id:'consumers.tiers',data:(tiers)}} className="w-full text-left text-sm text-slate-700">
+@@ -182 +183 @@ export default function ConsumerReentry() {
+-            </table>
++            </VisualTable>
+@@ -202 +203 @@ export default function ConsumerReentry() {
+-            <table className="w-full text-left text-sm text-slate-700">
++            <VisualTable visual={{id:'consumers.sequence',data:(sequenceEconomics)}} className="w-full text-left text-sm text-slate-700">
+@@ -237 +238 @@ export default function ConsumerReentry() {
+-            </table>
++            </VisualTable>
+@@ -254 +255 @@ export default function ConsumerReentry() {
+-            <table className="w-full text-left text-sm text-slate-700">
++            <VisualTable visual={{id:'consumers.sample',data:(repeatConsumersSample)}} className="w-full text-left text-sm text-slate-700">
+@@ -291 +292 @@ export default function ConsumerReentry() {
+-            </table>
++            </VisualTable>
+diff --git a/src/pages/DataCoverage.tsx b/src/pages/DataCoverage.tsx
+index fd74753..3db0927 100644
+--- a/src/pages/DataCoverage.tsx
++++ b/src/pages/DataCoverage.tsx
+@@ -0,0 +1 @@
++import DataVisual, { VisualTable } from '../components/visuals/DataVisual';
+@@ -28 +29 @@ export default function DataCoverage(){
+-      <section className="enterprise-card p-5"><h2 className="font-semibold mb-3">Configured Tables and API Consumers</h2><div className="overflow-x-auto"><table className="enterprise-table w-full" aria-label="Source table coverage"><thead><tr>{['Source','Physical Table','Schema Check','Metadata Row Count','API / Reports'].map(h=><th key={h} scope="col">{h}</th>)}</tr></thead><tbody>
++      <section className="enterprise-card p-5"><h2 className="font-semibold mb-3">Configured Tables and API Consumers</h2><div className="overflow-x-auto"><VisualTable visual={{id:'sources.coverage',data:(data.sources)}} className="enterprise-table w-full" aria-label="Source table coverage"><thead><tr>{['Source','Physical Table','Schema Check','Metadata Row Count','API / Reports'].map(h=><th key={h} scope="col">{h}</th>)}</tr></thead><tbody>
+@@ -30 +31 @@ export default function DataCoverage(){
+-      </tbody></table></div><p className="text-xs mt-3">Metadata row counts are not period-filtered counts and can be unavailable for views.</p></section>
++      </tbody></VisualTable></div><p className="text-xs mt-3">Metadata row counts are not period-filtered counts and can be unavailable for views.</p></section>
+@@ -33 +34 @@ export default function DataCoverage(){
+-        {failure&&<p role="alert">{failure}</p>}{visibleResult&&<div><p className="text-sm mb-3">{result.dateBasis} · {startDate} to {endDate}. {result.warning}</p><div className="overflow-x-auto"><table className="enterprise-table w-full" aria-label="Populated source metrics"><thead><tr>{['Metric','Value','Status','Valid / Missing / Invalid Rows'].map(h=><th key={h} scope="col">{h}</th>)}</tr></thead><tbody>{result.metrics.map((m:any)=><tr key={m.id}><th scope="row">{m.label}</th><td>{m.value===null?'Unavailable':exactNumber(m.value)}</td><td>{m.status}{m.reason&&<p className="text-sm">{m.reason}</p>}</td><td>{[m.validRows,m.missingRows,m.invalidRows].map(v=>v==null?'—':exactNumber(v)).join(' / ')}</td></tr>)}</tbody></table></div><p className="text-xs mt-3 break-all">Query job: {result.queryJobId??'Unavailable'} · {result.table}</p></div>}
++        {failure&&<p role="alert">{failure}</p>}{visibleResult&&<div><p className="text-sm mb-3">{result.dateBasis} · {startDate} to {endDate}. {result.warning}</p><div className="overflow-x-auto"><VisualTable visual={{id:'sources.metrics',data:(result.metrics)}} className="enterprise-table w-full" aria-label="Populated source metrics"><thead><tr>{['Metric','Value','Status','Valid / Missing / Invalid Rows'].map(h=><th key={h} scope="col">{h}</th>)}</tr></thead><tbody>{result.metrics.map((m:any)=><tr key={m.id}><th scope="row">{m.label}</th><td>{m.value===null?'Unavailable':exactNumber(m.value)}</td><td>{m.status}{m.reason&&<p className="text-sm">{m.reason}</p>}</td><td>{[m.validRows,m.missingRows,m.invalidRows].map(v=>v==null?'—':exactNumber(v)).join(' / ')}</td></tr>)}</tbody></VisualTable></div><p className="text-xs mt-3 break-all">Query job: {result.queryJobId??'Unavailable'} · {result.table}</p></div>}
+@@ -35,2 +36,2 @@ export default function DataCoverage(){
+-      <section className="enterprise-card p-5"><h2 className="font-semibold">Unmapped Dataset Tables</h2>{data.unmappedTables.length?<ul className="mt-3 space-y-2">{data.unmappedTables.map((t:any)=><li key={t.table}><code className="break-all">{t.table}</code><p className="text-sm">{t.reason}</p></li>)}</ul>:<p className="text-sm mt-2">{data.inventoryComplete?'No additional tables were returned by the authorised dataset inventory.':'Unknown: at least one dataset could not be listed.'}</p>}</section>
+-      <section className="enterprise-card p-5"><h2 className="font-semibold">Evidence Report Dependencies</h2><p className="text-sm my-3">These metrics require canonical fact releases. Raw-table availability alone does not populate or approve a release.</p><div className="overflow-x-auto"><table className="enterprise-table w-full" aria-label="Metric fact dependencies"><thead><tr><th scope="col">Metric</th><th scope="col">Required Facts</th><th scope="col">API</th></tr></thead><tbody>{data.metricLineage.versioned.map((m:any)=><tr key={m.metricId}><th scope="row">{m.label}</th><td>{m.requiredFacts.join(', ')}</td><td>{m.api}</td></tr>)}</tbody></table></div></section>
++      <section className="enterprise-card p-5"><h2 className="font-semibold">Unmapped Dataset Tables</h2><DataVisual id="sources.unmapped" data={data.unmappedTables}/>{data.unmappedTables.length?<ul className="mt-3 space-y-2">{data.unmappedTables.map((t:any)=><li key={t.table}><code className="break-all">{t.table}</code><p className="text-sm">{t.reason}</p></li>)}</ul>:<p className="text-sm mt-2">{data.inventoryComplete?'No additional tables were returned by the authorised dataset inventory.':'Unknown: at least one dataset could not be listed.'}</p>}</section>
++      <section className="enterprise-card p-5"><h2 className="font-semibold">Evidence Report Dependencies</h2><p className="text-sm my-3">These metrics require canonical fact releases. Raw-table availability alone does not populate or approve a release.</p><div className="overflow-x-auto"><VisualTable visual={{id:'sources.dependencies',data:(data.metricLineage.versioned)}} className="enterprise-table w-full" aria-label="Metric fact dependencies"><thead><tr><th scope="col">Metric</th><th scope="col">Required Facts</th><th scope="col">API</th></tr></thead><tbody>{data.metricLineage.versioned.map((m:any)=><tr key={m.metricId}><th scope="row">{m.label}</th><td>{m.requiredFacts.join(', ')}</td><td>{m.api}</td></tr>)}</tbody></VisualTable></div></section>
+diff --git a/src/pages/DataQuality.tsx b/src/pages/DataQuality.tsx
+index e009481..7874b2e 100644
+--- a/src/pages/DataQuality.tsx
++++ b/src/pages/DataQuality.tsx
+@@ -0,0 +1 @@
++import { VisualTable } from '../components/visuals/DataVisual';
+@@ -98 +99 @@ export default function DataQuality() {
+-          <table className="enterprise-table">
++          <VisualTable visual={{id:'quality.issues',data:(issuesData)}} className="enterprise-table">
+@@ -134 +135 @@ export default function DataQuality() {
+-          </table>
++          </VisualTable>
+diff --git a/src/pages/DataTrust.tsx b/src/pages/DataTrust.tsx
+index c1f72d9..7f8ba6f 100644
+--- a/src/pages/DataTrust.tsx
++++ b/src/pages/DataTrust.tsx
+@@ -0,0 +1 @@
++import { VisualTable } from '../components/visuals/DataVisual';
+@@ -198 +199 @@ export default function DataTrust() {
+-            <table className="w-full text-left text-sm text-slate-700">
++            <VisualTable visual={{id:'trust.capabilities',data:(vendorCapabilities)}} className="w-full text-left text-sm text-slate-700">
+@@ -231 +232 @@ export default function DataTrust() {
+-            </table>
++            </VisualTable>
+@@ -302 +303 @@ export default function DataTrust() {
+-            <table className="w-full text-left text-sm text-slate-700">
++            <VisualTable visual={{id:'trust.multivendor',data:(multiVendorData || [])}} className="w-full text-left text-sm text-slate-700">
+@@ -337 +338 @@ export default function DataTrust() {
+-            </table>
++            </VisualTable>
+diff --git a/src/pages/Explore.tsx b/src/pages/Explore.tsx
+index 26c36c5..f2de650 100644
+--- a/src/pages/Explore.tsx
++++ b/src/pages/Explore.tsx
+@@ -0,0 +1 @@
++import { VisualTable } from '../components/visuals/DataVisual';
+@@ -300 +301 @@ export default function Explore() {
+-                    <table className="enterprise-table w-full" aria-label="Explorer results">
++                    <VisualTable visual={{id:'explore.results',data:(rows), context:{metric,dimension}}} className="enterprise-table w-full" aria-label="Explorer results">
+@@ -322 +323 @@ export default function Explore() {
+-                    </table>
++                    </VisualTable>

@@ -1,0 +1,104 @@
+diff --git a/src/components/visuals/VisualExplorer.tsx b/src/components/visuals/VisualExplorer.tsx
+new file mode 100644
+index 0000000..566d6e2
+--- /dev/null
++++ b/src/components/visuals/VisualExplorer.tsx
+@@ -0,0 +1,55 @@
++import React, { Suspense, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from 'react';
++import { BarChart3, Download, Maximize2, RotateCcw, SlidersHorizontal, X } from 'lucide-react';
++import { graphPoints, chartAllowed, exactLabel, plotCsv, type VisualDataset, type VisualSettings, type VisualKind, type VisualPoint } from '../../lib/visuals/model';
++const VisualPlot=React.lazy(()=>import('./VisualPlot'));
++const kinds:[VisualKind,string][]=[['bar','Horizontal bars'],['column','Columns'],['line','Line'],['area','Area'],['scatter','Scatter'],['heatmap','Heatmap'],['donut','Doughnut']];
++const save=(text:string,name:string,type:string)=>{const url=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
++export default function VisualExplorer({datasets,onInspect}:{datasets:VisualDataset[];onInspect?:(dataset:VisualDataset,rowIndex:number)=>void}){
++  const [chosen,setChosen]=useState('');const dataset=datasets.find(d=>d.id===chosen)||datasets[0];
++  if(!dataset)return <div className="cx-viz-empty" role="status">No returned data is available to visualise. No sample figures are substituted.</div>;
++  return <div className="cx-visual-explorer" data-visual-id={dataset.id}>
++    {datasets.length>1&&<label className="cx-viz-dataset"><span>Dataset to visualise</span><select aria-label="Dataset to visualise" value={dataset.id} onChange={e=>setChosen(e.target.value)}>{datasets.map(d=><option key={d.id} value={d.id}>{d.title}</option>)}</select><small>{datasets.length} datasets from this response</small></label>}
++    <div key={dataset.id}><PlotControls dataset={dataset} onInspect={onInspect}/></div>
++  </div>;
++}
++function PlotControls({dataset,onInspect}:{dataset:VisualDataset;onInspect?:(dataset:VisualDataset,rowIndex:number)=>void}){
++  const initial=():VisualSettings=>({dimension:dataset.defaultDimension||dataset.dimensions[0]?.key||'',measure:dataset.defaultMeasure||dataset.measures[0]?.key||'',compare:'',mode:dataset.measures.length?'values':'records',search:'',sort:dataset.dimensions[0]?.ordered?'label':'source',offset:0,limit:25});
++  const [settings,setSettings]=useState<VisualSettings>(initial),[kind,setKind]=useState<VisualKind>(dataset.dimensions[0]?.ordered?'line':'bar');
++  const [height,setHeight]=useState(320),[inspectKey,setInspectKey]=useState<string|null>(null),[notice,setNotice]=useState(''),[advanced,setAdvanced]=useState(false);
++  useEffect(()=>{setInspectKey(null);setSettings(old=>old.offset?{...old,offset:0}:old);},[dataset.rows]);
++  const deferredSearch=useDeferredValue(settings.search),root=useRef<HTMLDivElement>(null),uid=useId();
++  const view=useMemo(()=>graphPoints(dataset,{...settings,search:deferredSearch,separateAxes:kind==='scatter'}),[dataset,settings,deferredSearch,kind]);
++  const allowed=chartAllowed(kind,view.dimension,view.mode,!!view.comparison),renderKind=allowed?kind:'bar';
++  const change=(patch:Partial<VisualSettings>)=>{setSettings(old=>({...old,...patch,offset:patch.offset??0}));setInspectKey(null);};
++  const chooseKind=(next:VisualKind)=>{setKind(next);if(next==='line'||next==='area')change({sort:'label'});if(next==='scatter'&&!settings.compare)change({compare:dataset.measures.find(m=>m.key!==view.metric.key)?.key||''});};
++  const selected=view.points.find(p=>p.key===inspectKey),updating=deferredSearch!==settings.search;
++  const reset=()=>{setSettings(initial());setKind(dataset.dimensions[0]?.ordered?'line':'bar');setHeight(320);setInspectKey(null);setNotice('');};
++  const fullname=dataset.id.replace(/[^\w-]+/g,'-').slice(0,80);
++  const image=()=>{const svg=root.current?.querySelector('.cx-viz-canvas svg');if(!svg){setNotice('SVG export is available for the chart types rendered with SVG.');return;}const clone=svg.cloneNode(true) as SVGSVGElement;clone.setAttribute('xmlns','http://www.w3.org/2000/svg');clone.setAttribute('style','background:white;font-family:Arial,sans-serif');save(new XMLSerializer().serializeToString(clone),`cx-${fullname}.svg`,'image/svg+xml');setNotice('Exported the displayed chart. Values in the exact CSV are unchanged.');};
++  const fullscreen=async()=>{try{if(document.fullscreenElement===root.current)await document.exitFullscreen();else await root.current?.requestFullscreen();}catch{setNotice('Full-screen mode is unavailable in this browser.');}};
++  const click=(point:VisualPoint)=>setInspectKey(point.key);
++  return <section ref={root} className="cx-viz" aria-label={`Visual view: ${dataset.title}`} data-testid="visual-view">
++    <header className="cx-viz-heading"><div><span className="cx-viz-kicker"><BarChart3 size={15}/>INTERACTIVE VISUAL VIEW</span><h3>{dataset.title}</h3><p>{dataset.note}</p></div><div className="cx-viz-actions"><button type="button" aria-label="Reset chart" title="Reset chart" onClick={reset}><RotateCcw size={16}/></button><button type="button" aria-label="Full screen chart" title="Full screen" onClick={fullscreen}><Maximize2 size={16}/></button></div></header>
++    <div className="cx-viz-controls">
++      <label><span>Chart type</span><select aria-label="Chart type" value={renderKind} onChange={e=>chooseKind(e.target.value as VisualKind)}>{kinds.map(([id,label])=><option key={id} value={id} disabled={!chartAllowed(id,view.dimension,view.mode,!!view.comparison)&&!(id==='scatter'&&view.mode==='values'&&dataset.measures.length>1)}>{label}</option>)}</select></label>
++      <label><span>Plot</span><select aria-label="Plot mode" value={view.mode} onChange={e=>change({mode:e.target.value as any,compare:''})}><option value="values" disabled={!dataset.measures.length}>Returned metric values</option><option value="records">Returned record distribution</option></select></label>
++      <label><span>{view.mode==='records'?'Group returned records by':'Label points by'}</span><select aria-label="Chart dimension" value={view.dimension?.key||''} onChange={e=>change({dimension:e.target.value})}>{!dataset.dimensions.length&&<option value="">Returned row order</option>}{dataset.dimensions.map(d=><option key={d.key} value={d.key}>{d.label}</option>)}</select></label>
++      <label><span>Measure</span><select aria-label="Chart measure" value={settings.measure} disabled={view.mode==='records'} onChange={e=>change({measure:e.target.value,compare:''})}>{!dataset.measures.length&&<option value="">Returned Record Count</option>}{dataset.measures.map(m=><option key={m.key} value={m.key}>{m.label}</option>)}</select></label>
++    </div>
++    <div className="cx-viz-tools"><label><span className="sr-only">Search chart labels</span><input type="search" aria-label="Search chart labels" maxLength={200} value={settings.search} placeholder="Find a category or date…" onChange={e=>change({search:e.target.value})}/></label><button type="button" aria-expanded={advanced} aria-controls={uid} onClick={()=>setAdvanced(v=>!v)}><SlidersHorizontal size={14}/>Adjust chart</button><button type="button" onClick={()=>save(plotCsv(view.points,view.metric,view.comparison,dataset),`cx-${fullname}-displayed.csv`,'text/csv;charset=utf-8')}><Download size={14}/>Exact displayed CSV</button><button type="button" onClick={image}>Export SVG</button></div>
++    {advanced&&<div id={uid} className="cx-viz-controls cx-viz-advanced">
++      <label><span>{renderKind==='scatter'?'X-axis measure':'Compare series (same unit)'}</span><select aria-label="Compare series" disabled={view.mode==='records'} value={view.comparison?.key||''} onChange={e=>change({compare:e.target.value})}><option value="">No comparison</option>{dataset.measures.filter(m=>m.key!==view.metric.key&&(renderKind==='scatter'||m.unit===view.metric.unit)).map(m=><option key={m.key} value={m.key}>{m.label}</option>)}</select></label>
++      <label><span>Order</span><select aria-label="Chart sort" value={settings.sort} disabled={renderKind==='line'||renderKind==='area'} onChange={e=>change({sort:e.target.value as any})}><option value="source">API row order</option><option value="label">Label / chronological order</option><option value="descending">Value: highest first</option><option value="ascending">Value: lowest first</option></select></label>
++      <label><span>Points per view</span><select aria-label="Chart point limit" value={settings.limit} onChange={e=>change({limit:Number(e.target.value)})}>{[10,25,50,100,250].map(v=><option value={v} key={v}>{v}</option>)}</select></label>
++      <label><span>Chart height</span><select aria-label="Chart height" value={height} onChange={e=>setHeight(Number(e.target.value))}>{[240,320,480,640].map(v=><option value={v} key={v}>{v} px</option>)}</select></label>
++    </div>}
++    <div className="cx-viz-caption" role="status" aria-live="polite">{updating?'Updating chart…':`Showing ${view.total?view.offset+1:0}–${Math.min(view.offset+view.limit,view.total)} of ${view.total} ${view.mode==='records'?'category counts':'returned points'}.`} {view.excluded>0&&`${view.excluded} missing or invalid values remain gaps.`}</div>
++    <p className="cx-viz-axis-note">{renderKind==='scatter'?`X: ${view.comparison?.label}. Y: ${view.metric.label}.`:`Measure: ${view.metric.label}.`} {view.mode==='records'?'Counts describe returned records, not unique people or events.':'Each point is a returned row. Duplicate labels are not merged.'} {renderKind==='donut'&&'Shares apply only to displayed categories.'}</p>
++    {view.imprecise&&<p className="cx-viz-warning">Plot positions use approximate numeric coordinates. Exact decimal values are retained in point details and the CSV; very close large values may look identical.</p>}
++    {!dataset.rows.length?<div className="cx-viz-empty" role="status">No rows were returned. This is not a measured zero.</div>:<div aria-busy={updating} className={updating?'cx-viz-updating':''}><Suspense fallback={<div className="cx-viz-empty" role="status">Loading chart renderer…</div>}><VisualPlot points={view.points} kind={renderKind} metric={view.metric} comparison={view.comparison} height={renderKind==='bar'?Math.max(height,Math.min(view.points.length*28+60,720)):height} onInspect={click}/></Suspense></div>}
++    {view.total>settings.limit&&<div className="cx-viz-window"><button type="button" aria-label="Previous chart points" disabled={!view.offset} onClick={()=>change({offset:Math.max(0,view.offset-view.limit)})}>Previous</button><label><span>Chart window</span><input type="range" aria-label="Chart window" min={0} max={Math.max(0,view.total-view.limit)} value={view.offset} onChange={e=>change({offset:Number(e.target.value)})}/></label><button type="button" aria-label="Next chart points" disabled={view.offset+view.limit>=view.total} onClick={()=>change({offset:view.offset+view.limit})}>Next</button></div>}
++    <details className="cx-viz-exact"><summary>Inspect exact plotted values ({view.points.length})</summary><p>Keyboard-accessible point selection. Chart-only search and windows do not change the original report or its complete export.</p><div className="cx-viz-point-list">{view.points.map(p=><button type="button" key={p.key} onClick={()=>click(p)}><span>{p.label}</span><span>{exactLabel(p.exact)}</span></button>)}</div></details>
++    {selected&&<aside className="cx-viz-inspect" aria-label="Selected chart point"><button type="button" aria-label="Close chart point" onClick={()=>setInspectKey(null)}><X size={15}/></button><strong>{selected.label}</strong><p>{view.metric.label}: {exactLabel(selected.exact)}</p>{view.comparison&&<p>{view.comparison.label}: {exactLabel(selected.compareExact)}</p>}{onInspect&&selected.rowIndex!==null&&<button type="button" onClick={()=>onInspect(dataset,selected.rowIndex!)}>Open supporting records</button>}</aside>}
++    {notice&&<p role="status" className="cx-viz-caption">{notice}</p>}
++  </section>;
++}
+diff --git a/src/components/visuals/VisualPlot.tsx b/src/components/visuals/VisualPlot.tsx
+new file mode 100644
+index 0000000..363814f
+--- /dev/null
++++ b/src/components/visuals/VisualPlot.tsx
+@@ -0,0 +1,31 @@
++import React from 'react';
++import { ResponsiveContainer, BarChart, Bar, LineChart, Line, AreaChart, Area, ScatterChart, Scatter, PieChart, Pie, Cell, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ReferenceLine } from 'recharts';
++import { exactLabel, type VisualPoint, type VisualKind, type Measure } from '../../lib/visuals/model';
++const colours=['#087f8c','#345c9c','#bb762c','#7560a6','#547545','#b7526a'];
++const axis=(v:unknown)=>typeof v==='number'?new Intl.NumberFormat('en-GB',{notation:'compact',maximumFractionDigits:2}).format(v):String(v??'');
++interface Props { points:VisualPoint[]; kind:VisualKind; metric:Measure; comparison?:Measure; height:number; onInspect:(p:VisualPoint)=>void; }
++export default function VisualPlot({points,kind,metric,comparison,height,onInspect}:Props){
++  const tooltip=({active,payload}:any)=>{if(!active||!payload?.length)return null;const p=payload[0].payload as VisualPoint;return <div className="cx-viz-tooltip"><strong>{p.label}</strong><p>{metric.label}: <b>{exactLabel(p.exact)}</b></p>{comparison&&<p>{comparison.label}: <b>{exactLabel(p.compareExact)}</b></p>}<small>Exact API values. Select a mark for details.</small></div>;};
++  const click=(p:any)=>{const point=p?.payload||p;if(point&&typeof point.key==='string')onInspect(point);};
++  const common={data:points,margin:{top:16,right:24,bottom:24,left:8},accessibilityLayer:true};
++  const label=(v:any)=>String(v).length>22?String(v).slice(0,20)+'…':String(v);
++  const hasValues=points.some(p=>p.value!==null&&(kind!=='scatter'||p.comparison!==null));
++  if(!hasValues)return <div className="cx-viz-empty" role="status">No plottable values in this selection. Missing values remain unavailable, not zero.</div>;
++  if(kind==='heatmap'){
++    const finite=points.flatMap(p=>p.value===null?[]:[Math.abs(p.value)]),max=Math.max(...finite,1);
++    return <div className="cx-viz-heatmap" style={{maxHeight:height}} role="list" aria-label="Heatmap points">{points.map(p=><button type="button" role="listitem" key={p.key} onClick={()=>onInspect(p)} style={{background:p.value===null?'#f1f4f6':p.value<0?`rgba(187,118,44,${.12+.75*Math.abs(p.value)/max})`:`rgba(8,127,140,${.12+.75*Math.abs(p.value)/max})`,color:p.value!==null&&Math.abs(p.value)/max>.6?'#fff':'#17283d'}}><span>{p.label}</span><strong>{p.value===null?'Unavailable':axis(p.value)}</strong></button>)}</div>;
++  }
++  const y=<YAxis tickFormatter={axis} tick={{fontSize:11}} domain={[(min:number)=>Math.min(0,min),(max:number)=>Math.max(0,max)]} width={65}/>;
++  const x=<XAxis dataKey="label" tickFormatter={label} tick={{fontSize:11}} minTickGap={24} interval="preserveStartEnd"/>;
++  const tips=<Tooltip content={tooltip}/>;
++  const legend=<Legend wrapperStyle={{fontSize:12,paddingTop:12}}/>;
++  const grid=<CartesianGrid strokeDasharray="3 4" vertical={false} stroke="#dde5eb"/>;
++  let chart:React.ReactNode;
++  if(kind==='donut')chart=<PieChart><Pie data={points.filter(p=>p.value!==null&&p.value>0)} nameKey="label" dataKey="value" cx="50%" cy="50%" innerRadius="42%" outerRadius="75%" paddingAngle={2} isAnimationActive={false} onClick={click}>{points.filter(p=>p.value!==null&&p.value>0).map((p,i)=><Cell key={p.key} fill={colours[i%colours.length]}/>)}</Pie>{tips}</PieChart>;
++  else if(kind==='scatter')chart=<ScatterChart {...common}>{grid}<XAxis type="number" dataKey="comparison" name={comparison?.label} tickFormatter={axis} tick={{fontSize:11}} domain={['auto','auto']}/><YAxis type="number" dataKey="value" name={metric.label} tickFormatter={axis} tick={{fontSize:11}} domain={['auto','auto']} width={65}/>{tips}<Scatter name={metric.label} data={points.filter(p=>p.value!==null&&p.comparison!==null)} fill={colours[0]} isAnimationActive={false} onClick={click}/></ScatterChart>;
++  else if(kind==='line')chart=<LineChart {...common}>{grid}{x}{y}{tips}{legend}<ReferenceLine y={0} stroke="#64748b"/><Line dataKey="value" name={metric.label} type="linear" stroke={colours[0]} strokeWidth={2} connectNulls={false} dot={points.length<51?{r:3}:false} activeDot={{r:5}} isAnimationActive={false}/>{comparison&&<Line dataKey="comparison" name={comparison.label} type="linear" stroke={colours[1]} strokeWidth={2} connectNulls={false} dot={false} isAnimationActive={false}/>}</LineChart>;
++  else if(kind==='area')chart=<AreaChart {...common}>{grid}{x}{y}{tips}{legend}<ReferenceLine y={0} stroke="#64748b"/><Area dataKey="value" name={metric.label} type="linear" stroke={colours[0]} fill={colours[0]} fillOpacity={.15} connectNulls={false} isAnimationActive={false}/>{comparison&&<Area dataKey="comparison" name={comparison.label} type="linear" stroke={colours[1]} fill={colours[1]} fillOpacity={.12} connectNulls={false} isAnimationActive={false}/>}</AreaChart>;
++  else if(kind==='bar')chart=<BarChart {...common} layout="vertical" margin={{top:8,right:24,bottom:12,left:8}}><CartesianGrid strokeDasharray="3 4" horizontal={false} stroke="#dde5eb"/><XAxis type="number" tickFormatter={axis} tick={{fontSize:11}} domain={[(min:number)=>Math.min(0,min),(max:number)=>Math.max(0,max)]}/><YAxis type="category" dataKey="label" tickFormatter={label} tick={{fontSize:11}} width={115} interval={0}/>{tips}{legend}<ReferenceLine x={0} stroke="#64748b"/><Bar dataKey="value" name={metric.label} fill={colours[0]} maxBarSize={26} isAnimationActive={false} onClick={click}/>{comparison&&<Bar dataKey="comparison" name={comparison.label} fill={colours[1]} maxBarSize={26} isAnimationActive={false} onClick={click}/>}</BarChart>;
++  else chart=<BarChart {...common}>{grid}{x}{y}{tips}{legend}<ReferenceLine y={0} stroke="#64748b"/><Bar dataKey="value" name={metric.label} fill={colours[0]} maxBarSize={40} isAnimationActive={false} onClick={click}/>{comparison&&<Bar dataKey="comparison" name={comparison.label} fill={colours[1]} maxBarSize={40} isAnimationActive={false} onClick={click}/>}</BarChart>;
++  return <div className="cx-viz-canvas" role="img" aria-label={`${kind} chart: ${metric.label}, ${points.length} returned points`} style={{height}}><ResponsiveContainer width="100%" height="100%" debounce={60}>{chart as any}</ResponsiveContainer></div>;
++}
+diff --git a/src/lib/navigation.ts b/src/lib/navigation.ts
+index b773370..c041966 100644
+--- a/src/lib/navigation.ts
++++ b/src/lib/navigation.ts
+@@ -6,0 +7 @@ export const NAV_GROUPS = [
++        { name: 'Visual Workspace', path: '/visuals', icon: Activity },

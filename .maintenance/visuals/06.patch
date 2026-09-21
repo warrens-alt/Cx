@@ -1,0 +1,138 @@
+diff --git a/tests/visualisation.test.ts b/tests/visualisation.test.ts
+new file mode 100644
+index 0000000..177ae93
+--- /dev/null
++++ b/tests/visualisation.test.ts
+@@ -0,0 +1,124 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import fs from 'node:fs';
++import path from 'node:path';
++import { graphPoints, decimal, exactLabel, chartAllowed, field, plotCsv, type VisualSettings } from '../src/lib/visuals/model';
++import { tableDataset, metricDatasets, datasetsFor, responseDatasets, TABLE_VISUALS, API_VISUAL_REPORTS } from '../src/lib/visuals/datasets';
++const select:VisualSettings={dimension:'source',measure:'leads',compare:'',mode:'values',search:'',sort:'source',offset:0,limit:25};
++const dataset=(rows:any[])=>tableDataset('sources.performance',rows);
++test('charts preserve zero and reject blanks, booleans, formatted cells and non-finite values',()=>{
++  for(const v of [null,undefined,'','N/A','12.5%','1,200',true,false,NaN,Infinity])assert.equal(decimal(v),null,String(v));
++  assert.equal(decimal(0),'0');assert.equal(decimal('12.5'),'12.5');assert.equal(decimal('9007199254740993'),'9007199254740993');
++});
++test('scientific JS numbers expand without modifying string source values',()=>{
++  assert.equal(decimal(1e-7),'0.0000001');assert.equal(decimal(1e21),'1000000000000000000000');assert.equal(decimal('1e21'),null);
++});
++test('missing records remain null gaps, not zero',()=>{
++  const d=dataset([{source:'A',leads:0},{source:'B',leads:null},{source:'C',leads:'invalid'}]);
++  const v=graphPoints(d,select);assert.deepEqual(v.points.map(p=>p.value),[0,null,null]);assert.equal(v.excluded,2);
++});
++test('duplicate category labels do not sum or average metric values',()=>{
++  const v=graphPoints(dataset([{source:'A',leads:3},{source:'A',leads:9}]),select);
++  assert.equal(v.points.length,2);assert.deepEqual(v.points.map(p=>p.exact),['3','9']);assert.notEqual(v.points[0].key,v.points[1].key);
++});
++test('explicit record distribution counts returned rows rather than summing metrics',()=>{
++  const v=graphPoints(dataset([{source:'A',leads:300},{source:'A',leads:900},{source:'B',leads:1}]),{...select,mode:'records'});
++  assert.deepEqual(v.points.map(p=>[p.label,p.exact]),[['A','2'],['B','1']]);assert.equal(v.metric.unit,'returned records');
++});
++test('exact decimal sorting distinguishes values above JS safe integer precision',()=>{
++  const d=dataset([{source:'A',leads:'9007199254740992'},{source:'B',leads:'9007199254740993'}]);
++  const v=graphPoints(d,{...select,sort:'descending'});assert.deepEqual(v.points.map(p=>p.label),['B','A']);assert.equal(v.imprecise,true);
++});
++test('negative decimal values keep order and sign',()=>{
++  const v=graphPoints(dataset([{source:'A',leads:'-2.05'},{source:'B',leads:'-2.5'}]),{...select,sort:'ascending'});
++  assert.deepEqual(v.points.map(p=>p.exact),['-2.5','-2.05']);
++});
++test('view windows are bounded and never mutate or truncate the source array',()=>{
++  const rows=Array.from({length:1000},(_,i)=>({source:'Source '+i,leads:i}));const d=dataset(rows);
++  const v=graphPoints(d,{...select,offset:990,limit:25});assert.equal(v.points.length,25);assert.equal(v.offset,975);assert.equal(v.total,1000);assert.equal(d.rows.length,1000);assert.equal(rows[0].leads,0);
++});
++test('search filters only chart labels and preserves source totals',()=>{
++  const d=dataset([{source:'Alpha',leads:3},{source:'Beta',leads:9}]);assert.equal(graphPoints(d,{...select,search:'ALP'}).points.length,1);assert.equal(d.rows.length,2);
++});
++test('IDs and phone data are never inferred as measurements',()=>{
++  const d=dataset([{source:'A',lead_id:123,consumer_id:456,mobile:'0721234567',leads:9}]);
++  assert.deepEqual(d.measures.map(m=>m.key),['leads']);assert.ok(!d.dimensions.some(m=>/id|mobile/.test(m.key)));
++});
++test('false and true validation flags remain categorical and distinguish unknown',()=>{
++  const d=tableDataset('flags',[{valid_lead:false},{valid_lead:true},{valid_lead:null}],{dimension:'valid_lead'});
++  const v=graphPoints(d,{...select,dimension:'valid_lead',mode:'records'});assert.deepEqual(v.points.map(p=>p.label),['Recorded no','Recorded yes','Unspecified']);
++});
++test('nested cohort percentages use exact values without percent scaling',()=>{
++  const d=tableDataset('cohorts.maturity',[{cohort:'2026-08',metrics:{d0:'12.5',d30:null}}]);
++  const v=graphPoints(d,{...select,dimension:'cohort',measure:'metrics.d0'});assert.equal(v.points[0].exact,'12.5');assert.equal(v.metric.unit,'percent');
++});
++test('missing immature cohort values are retained as selectable unavailable metrics',()=>{
++  const d=tableDataset('cohorts.maturity',[{cohort:'2026-09',metrics:{d0:'1',d30:null}}]);
++  assert.ok(d.measures.some(m=>m.key==='metrics.d30'));assert.equal(graphPoints(d,{...select,dimension:'cohort',measure:'metrics.d30'}).points[0].exact,null);
++});
++test('snapshot metric adapter separates count, rate and money datasets',()=>{
++  const list=metricDatasets('report',[{metricId:'fetched_leads',value:'10',numerator:'10',denominator:null},{metricId:'call_coverage',value:'12.5',numerator:'1',denominator:'8'}]);
++  assert.equal(list.length,2);assert.equal(list[1].measures.find(m=>m.key==='value')?.unit,'percent');assert.notEqual(list[0].measures[0].unit,list[1].measures[0].unit);
++});
++test('unavailable calculation results cannot plot a populated stale value',()=>{
++  const d=metricDatasets('report',[{metricId:'fetched_leads',value:'42',calculationStatus:'UNAVAILABLE'}])[0];assert.equal(d.rows[0].value,null);
++});
++test('unspecified source group is not relabelled as a report total',()=>{
++  assert.equal(metricDatasets('report',[{metricId:'fetched_leads',group:null,value:'2'}])[0].rows[0].group,'Unspecified');
++});
++test('ordinary comparisons require the same unit; scatter can use separate labelled axes',()=>{
++  const d=dataset([{source:'A',leads:5,revenue:200}]);
++  assert.equal(graphPoints(d,{...select,compare:'revenue'}).comparison,undefined);
++  assert.equal(graphPoints(d,{...select,compare:'revenue',separateAxes:true}).comparison?.key,'revenue');
++});
++test('doughnut is restricted to a disjoint distribution of returned records',()=>{
++  assert.equal(chartAllowed('donut',{key:'source',label:'Source'},'values',false),false);
++  assert.equal(chartAllowed('donut',{key:'source',label:'Source'},'records',false),true);
++});
++test('line and area require an ordered dimension; arbitrary categories cannot imply a time trend',()=>{
++  assert.equal(chartAllowed('line',{key:'source',label:'Source'},'values',false),false);
++  assert.equal(chartAllowed('area',{key:'date',label:'Date',ordered:true},'values',false),true);
++});
++test('CSV has exact decimal strings and escaping, with scope notes',()=>{
++  const d=dataset([{source:'=HYPERLINK("x")',leads:'9007199254740993'}]);const v=graphPoints(d,select);
++  const csv=plotCsv(v.points,v.metric,undefined,d);assert.match(csv,/9007199254740993/);assert.match(csv,/'=HYPERLINK/);assert.match(csv,/Scope note/);
++});
++test('safe nested fields cannot read prototype properties',()=>{
++  assert.equal(field({},'constructor.name'),null);assert.equal(field({nested:{v:1}},'nested.v'),1);
++});
++test('media adapter keeps metrics apart and preserves channel populations',()=>{
++  const list=datasetsFor('media.groups',[{group:'A',metrics:[{id:'clicks',label:'Clicks',value:'5'},{id:'impressions',label:'Impressions',value:'50'}]}]);
++  assert.equal(list.length,2);assert.equal(list[0].rows[0].group,'A');assert.equal(list[0].rows[0].value,'5');
++});
++test('metadata dependencies are relationships, not business outcome values',()=>{
++  const list=datasetsFor('sources.dependencies',[{label:'Sales',requiredFacts:['leads','sales']}]);assert.equal(list[0].rows.length,2);assert.equal(list[0].measures.length,0);
++});
++test('all five configured sources are available in the visual workspace',()=>{
++  for(const role of ['leads','calls','timeToDial','activations','marketing'])assert.ok(API_VISUAL_REPORTS.some(([key])=>key==='source-metrics/'+role));
++});
++test('recursive API datasets discover distinct returned arrays and scalar summaries',()=>{
++  const list=responseDatasets({leads:10,trend:[{date:'2026-08-01',leads:10}],sources:[{source:'A',leads:10}]},'overview');
++  assert.equal(list.length,3);assert.ok(list.some(d=>d.id==='overview.trend'));assert.ok(list.some(d=>d.id==='overview.sources'));
++});
++test('empty and metadata-only sources do not invent metric values',()=>{
++  const d=tableDataset('sources.coverage',[]);const v=graphPoints(d,select);assert.equal(v.total,0);assert.equal(v.points.length,0);
++});
++test('every retained table declaration is connected to the shared visual wrapper',()=>{
++  const walk=(dir:string):string[]=>fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(path.join(dir,e.name)):e.name.endsWith('.tsx')?[path.join(dir,e.name)]:[]);
++  for(const file of walk('src'))if(!file.includes('components/visuals/'))assert.doesNotMatch(fs.readFileSync(file,'utf8'),/<table\b/,file);
++});
++test('all documented table dataset IDs have stable schema definitions',()=>{
++  assert.ok(Object.keys(TABLE_VISUALS).length>=28);for(const [key,spec] of Object.entries(TABLE_VISUALS))assert.ok(spec.title,key);
++});
++test('visual controls never request broader data or recompute authoritative metrics',()=>{
++  const s=fs.readFileSync('src/components/visuals/VisualExplorer.tsx','utf8');assert.doesNotMatch(s,/\bfetch\(/);assert.match(s,/Exact displayed CSV/);
++  const p=fs.readFileSync('src/components/visuals/VisualPlot.tsx','utf8');assert.match(p,/connectNulls=\{false\}/);assert.doesNotMatch(p,/type="monotone"/);
++});
++test('display formatting keeps all source decimal places',()=>{assert.equal(exactLabel('9007199254740993.100'),'9,007,199,254,740,993.100');assert.equal(exactLabel(null),'Unavailable');});
++
++test('CSV retains legitimate signed decimal values without prefixing them as formulas',()=>{
++  const ds=tableDataset('test',[{label:'A',value:'-12.50'}]);
++  const view=graphPoints(ds,{...select,measure:'value'});
++  const csv=plotCsv(view.points,view.metric,undefined,ds);
++  assert.ok(csv.includes('"-12.50"'));assert.ok(!csv.includes("'-12.50"));
++});
+diff --git a/tooling/browser/smoke.mjs b/tooling/browser/smoke.mjs
+index 21d9ddc..41084eb 100644
+--- a/tooling/browser/smoke.mjs
++++ b/tooling/browser/smoke.mjs
+@@ -0,0 +1 @@
++import { verifyVisualControls } from './visual-controls.mjs';
+@@ -148,0 +150 @@ try{
++  checks += await verifyVisualControls(browser, 'http://127.0.0.1:3187');

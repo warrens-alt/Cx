@@ -1,0 +1,257 @@
+diff --git a/src/pages/Funnel.tsx b/src/pages/Funnel.tsx
+index 59e4d03..1998850 100644
+--- a/src/pages/Funnel.tsx
++++ b/src/pages/Funnel.tsx
+@@ -0,0 +1 @@
++import DataVisual from '../components/visuals/DataVisual';
+@@ -69,0 +71 @@ export default function Funnel() {
++      <DataVisual id="api.response" data={{stages:funnelData,calls:callData}} context={{endpoint:"funnel"}}/>
+diff --git a/src/pages/Insights.tsx b/src/pages/Insights.tsx
+index 3331ad5..94af04f 100644
+--- a/src/pages/Insights.tsx
++++ b/src/pages/Insights.tsx
+@@ -0,0 +1 @@
++import { VisualTable } from '../components/visuals/DataVisual';
+@@ -98 +99 @@ export default function Insights() {
+-          <table className="enterprise-table w-full">
++          <VisualTable visual={{id:'comparison',data:(rows), context:{metric:selectedMetric}}} className="enterprise-table w-full">
+@@ -134 +135 @@ export default function Insights() {
+-          </table>
++          </VisualTable>
+diff --git a/src/pages/LeadExplorer.tsx b/src/pages/LeadExplorer.tsx
+index b9fb93d..9c9d7f7 100644
+--- a/src/pages/LeadExplorer.tsx
++++ b/src/pages/LeadExplorer.tsx
+@@ -0,0 +1 @@
++import { VisualTable } from '../components/visuals/DataVisual';
+@@ -81 +82 @@ export default function LeadExplorer() {
+-          <table className="enterprise-table">
++          <VisualTable visual={{id:'records.leads',data:(leads || [])}} className="enterprise-table">
+@@ -117 +118 @@ export default function LeadExplorer() {
+-          </table>
++          </VisualTable>
+diff --git a/src/pages/Ledger.tsx b/src/pages/Ledger.tsx
+index e0debfb..bed1c7c 100644
+--- a/src/pages/Ledger.tsx
++++ b/src/pages/Ledger.tsx
+@@ -0,0 +1 @@
++import { VisualTable } from '../components/visuals/DataVisual';
+@@ -330 +331 @@ export default function LedgerPage() {
+-              <table className="min-w-full divide-y divide-slate-200">
++              <VisualTable visual={{id:'legacy.ledger',data:([summary])}} className="min-w-full divide-y divide-slate-200">
+@@ -401 +402 @@ export default function LedgerPage() {
+-              </table>
++              </VisualTable>
+@@ -439 +440 @@ export default function LedgerPage() {
+-        <table className="min-w-full divide-y divide-slate-200">
++        <VisualTable visual={{id:'legacy.ledger',data:(finalLedger)}} className="min-w-full divide-y divide-slate-200">
+@@ -508 +509 @@ export default function LedgerPage() {
+-        </table>
++        </VisualTable>
+diff --git a/src/pages/Outcomes.tsx b/src/pages/Outcomes.tsx
+index d47bb8d..5dc66f4 100644
+--- a/src/pages/Outcomes.tsx
++++ b/src/pages/Outcomes.tsx
+@@ -0,0 +1 @@
++import { VisualTable } from '../components/visuals/DataVisual';
+@@ -238 +239 @@ export default function Outcomes() {
+-              <table className="enterprise-table w-full text-left text-sm">
++              <VisualTable visual={{id:'outcomes.status',data:(vendorStatusEconomics)}} className="enterprise-table w-full text-left text-sm">
+@@ -282 +283 @@ export default function Outcomes() {
+-              </table>
++              </VisualTable>
+diff --git a/src/pages/Overview.tsx b/src/pages/Overview.tsx
+index 748d6c9..8113cce 100644
+--- a/src/pages/Overview.tsx
++++ b/src/pages/Overview.tsx
+@@ -0,0 +1 @@
++import DataVisual from '../components/visuals/DataVisual';
+@@ -36 +37 @@ export default function Overview() {
+-    <div className="space-y-6">
++    <div className="space-y-6"><DataVisual id="api.response" data={data} context={{endpoint:"overview"}}/>
+diff --git a/src/pages/QualityVetting.tsx b/src/pages/QualityVetting.tsx
+index 040e0bc..f163984 100644
+--- a/src/pages/QualityVetting.tsx
++++ b/src/pages/QualityVetting.tsx
+@@ -0,0 +1 @@
++import { VisualTable } from '../components/visuals/DataVisual';
+@@ -112 +113 @@ export default function QualityVetting() {
+-              <table className="enterprise-table w-full">
++              <VisualTable visual={{id:'quality.grades',data:(gradeBreakdown)}} className="enterprise-table w-full">
+@@ -168 +169 @@ export default function QualityVetting() {
+-              </table>
++              </VisualTable>
+@@ -177 +178 @@ export default function QualityVetting() {
+-            <table className="enterprise-table w-full">
++            <VisualTable visual={{id:'quality.reasons',data:(qualityData.reasons || [])}} className="enterprise-table w-full">
+@@ -194 +195 @@ export default function QualityVetting() {
+-            </table>
++            </VisualTable>
+diff --git a/src/pages/Revetting.tsx b/src/pages/Revetting.tsx
+index 04486ad..f16d91c 100644
+--- a/src/pages/Revetting.tsx
++++ b/src/pages/Revetting.tsx
+@@ -0,0 +1 @@
++import { VisualTable } from '../components/visuals/DataVisual';
+@@ -100 +101 @@ export default function Revetting() {
+-            <table className="w-full text-left text-sm text-slate-700">
++            <VisualTable visual={{id:'revetting.comparison',data:(comparison)}} className="w-full text-left text-sm text-slate-700">
+@@ -132 +133 @@ export default function Revetting() {
+-            </table>
++            </VisualTable>
+@@ -149 +150 @@ export default function Revetting() {
+-              <table className="w-full text-left text-sm text-slate-700">
++              <VisualTable visual={{id:'revetting.vetting',data:(vettingColorBreakdown)}} className="w-full text-left text-sm text-slate-700">
+@@ -180 +181 @@ export default function Revetting() {
+-              </table>
++              </VisualTable>
+diff --git a/src/pages/RoutingIntelligence.tsx b/src/pages/RoutingIntelligence.tsx
+index 1b5a388..646519d 100644
+--- a/src/pages/RoutingIntelligence.tsx
++++ b/src/pages/RoutingIntelligence.tsx
+@@ -0,0 +1 @@
++import { VisualTable } from '../components/visuals/DataVisual';
+@@ -149 +150 @@ export default function RoutingIntelligence() {
+-              <table className="w-full text-left text-sm text-slate-700">
++              <VisualTable visual={{id:'routing.depth',data:(depthBreakdown)}} className="w-full text-left text-sm text-slate-700">
+@@ -186 +187 @@ export default function RoutingIntelligence() {
+-              </table>
++              </VisualTable>
+@@ -202 +203 @@ export default function RoutingIntelligence() {
+-              <table className="w-full text-left text-sm text-slate-700">
++              <VisualTable visual={{id:'routing.paths',data:(topRoutePaths)}} className="w-full text-left text-sm text-slate-700">
+@@ -257 +258 @@ export default function RoutingIntelligence() {
+-              </table>
++              </VisualTable>
+@@ -279 +280 @@ export default function RoutingIntelligence() {
+-            <table className="w-full text-left text-sm text-slate-700">
++            <VisualTable visual={{id:'routing.handoff',data:(partnerHandoff)}} className="w-full text-left text-sm text-slate-700">
+@@ -327 +328 @@ export default function RoutingIntelligence() {
+-            </table>
++            </VisualTable>
+@@ -356 +357 @@ export default function RoutingIntelligence() {
+-              <table className="w-full text-left text-sm text-slate-700">
++              <VisualTable visual={{id:'routing.missing',data:(missingSample)}} className="w-full text-left text-sm text-slate-700">
+@@ -379 +380 @@ export default function RoutingIntelligence() {
+-              </table>
++              </VisualTable>
+diff --git a/src/pages/SourceAnalysis.tsx b/src/pages/SourceAnalysis.tsx
+index d1aac33..5c287f7 100644
+--- a/src/pages/SourceAnalysis.tsx
++++ b/src/pages/SourceAnalysis.tsx
+@@ -0,0 +1 @@
++import { VisualTable } from '../components/visuals/DataVisual';
+@@ -202 +203 @@ export default function SourceAnalysis() {
+-          <table className="enterprise-table w-full">
++          <VisualTable visual={{id:'sources.performance',data:(sourceData)}} className="enterprise-table w-full">
+@@ -311 +312 @@ export default function SourceAnalysis() {
+-          </table>
++          </VisualTable>
+diff --git a/src/pages/SpeedToLead.tsx b/src/pages/SpeedToLead.tsx
+index b89585f..924d7b8 100644
+--- a/src/pages/SpeedToLead.tsx
++++ b/src/pages/SpeedToLead.tsx
+@@ -0,0 +1 @@
++import { VisualTable } from '../components/visuals/DataVisual';
+@@ -34 +35 @@ export default function SpeedToLead() {
+-        <table className="enterprise-table w-full"><thead><tr>{['Elapsed Whole Minutes','Transaction Rows','RPC Flag Rows','Sale Flag Rows','Sale Flags with Recorded Revenue','Activation Flag Rows','Recorded Revenue','Recorded Revenue / Row'].map(h=><th key={h} scope="col">{h}</th>)}</tr></thead>
++        <VisualTable visual={{id:'speed.bands',data:(buckets)}} className="enterprise-table w-full"><thead><tr>{['Elapsed Whole Minutes','Transaction Rows','RPC Flag Rows','Sale Flag Rows','Sale Flags with Recorded Revenue','Activation Flag Rows','Recorded Revenue','Recorded Revenue / Row'].map(h=><th key={h} scope="col">{h}</th>)}</tr></thead>
+@@ -38 +39 @@ export default function SpeedToLead() {
+-        </table>
++        </VisualTable>
+diff --git a/src/pages/UserJourney.tsx b/src/pages/UserJourney.tsx
+index 3a3afb9..14311d0 100644
+--- a/src/pages/UserJourney.tsx
++++ b/src/pages/UserJourney.tsx
+@@ -0,0 +1 @@
++import { VisualTable } from '../components/visuals/DataVisual';
+@@ -188 +189 @@ export default function UserJourneyPage() {
+-          <table className="w-full text-left">
++          <VisualTable visual={{id:'legacy.journey',data:(rates)}} className="w-full text-left">
+@@ -217 +218 @@ export default function UserJourneyPage() {
+-          </table>
++          </VisualTable>
+@@ -222 +223 @@ export default function UserJourneyPage() {
+-          <table className="w-full text-left">
++          <VisualTable visual={{id:'legacy.journey',data:(volumes)}} className="w-full text-left">
+@@ -242 +243 @@ export default function UserJourneyPage() {
+-          </table>
++          </VisualTable>
+@@ -247 +248 @@ export default function UserJourneyPage() {
+-          <table className="w-full text-left">
++          <VisualTable visual={{id:'legacy.journey',data:(months)}} className="w-full text-left">
+@@ -281 +282 @@ export default function UserJourneyPage() {
+-          </table>
++          </VisualTable>
+@@ -287 +288 @@ export default function UserJourneyPage() {
+-          <table className="w-full min-w-max text-left">
++          <VisualTable visual={{id:'legacy.journey',data:(months)}} className="w-full min-w-max text-left">
+@@ -327 +328 @@ export default function UserJourneyPage() {
+-          </table>
++          </VisualTable>
+diff --git a/src/pages/VersionedReports.tsx b/src/pages/VersionedReports.tsx
+index 977cd4b..a1172f6 100644
+--- a/src/pages/VersionedReports.tsx
++++ b/src/pages/VersionedReports.tsx
+@@ -0,0 +1 @@
++import DataVisual from '../components/visuals/DataVisual';
+@@ -103,0 +105 @@ export default function VersionedReports() {
++      <DataVisual id="report.totals" data={data.totals} context={{note:`Snapshot ${data.releaseId} · ${data.metricVersion} · ${data.request.startDate} to ${data.request.endDate}. Each metric retains its own unit and population.`}}/>
+@@ -114 +116 @@ export default function VersionedReports() {
+-      {evidence && evidence.executionId===data.executionId && <section className="enterprise-card cx-evidence-panel"><h2 className="font-semibold">Evidence: {METRIC_BY_ID[evidence.metricId].label}</h2><p>{evidence.rowCount} records. Truncation: no. Preview shows up to 20 records.</p><button className="cx-link-button my-3" onClick={()=>download(evidence,`cx-evidence-${evidence.metricId}.json`)}>Download complete scoped evidence JSON</button><pre className="text-xs whitespace-pre-wrap break-all">{JSON.stringify(evidence.rows.slice(0,20),null,2)}</pre></section>}
++      {evidence && evidence.executionId===data.executionId && <section className="enterprise-card cx-evidence-panel"><h2 className="font-semibold">Evidence: {METRIC_BY_ID[evidence.metricId].label}</h2><p>{evidence.rowCount} records. Truncation: no. Preview shows up to 20 records.</p><button className="cx-link-button my-3" onClick={()=>download(evidence,`cx-evidence-${evidence.metricId}.json`)}>Download complete scoped evidence JSON</button><DataVisual id="report.evidence" data={evidence.rows} context={{title:`Evidence Records · ${METRIC_BY_ID[evidence.metricId].label}`,note:`All returned evidence rows for execution ${data.executionId}; not just the 20-row text preview. Distinct entities are not inferred from row counts.`}}/><pre className="text-xs whitespace-pre-wrap break-all">{JSON.stringify(evidence.rows.slice(0,20),null,2)}</pre></section>}
+diff --git a/src/pages/VisualWorkspace.tsx b/src/pages/VisualWorkspace.tsx
+new file mode 100644
+index 0000000..73a0b62
+--- /dev/null
++++ b/src/pages/VisualWorkspace.tsx
+@@ -0,0 +1,18 @@
++import React, { useState } from 'react';
++import DataVisual from '../components/visuals/DataVisual';
++import { PageShell } from '../components/PageShell';
++import PageHeader from '../components/PageHeader';
++import { DataState } from '../components/DataState';
++import { useAnalyticsData } from '../lib/useAnalyticsData';
++import { API_VISUAL_REPORTS } from '../lib/visuals/datasets';
++export default function VisualWorkspace(){
++  const [endpoint,setEndpoint]=useState('overview');
++  const {data,metadata,loading,error,refetch}=useAnalyticsData(endpoint);
++  return <PageShell><PageHeader title="Visual Workspace" description="Explore every available report and configured source through adjustable charts. The source API and reporting filters remain authoritative."/>
++    <section className="cx-visual-workspace-intro"><p>Choose an API report, then a dataset and measure. Switch chart type, compare compatible series, inspect points, or count returned records by category. Date-based reports support line and area charts. Tables elsewhere in the app also have their own visual controls.</p>
++      <label>Report or configured source<select aria-label="Visual report source" value={endpoint} onChange={e=>setEndpoint(e.target.value)}>{API_VISUAL_REPORTS.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
++      <p className="mt-3">Source diagnostics use their stated source date, not necessarily capture date. Unsupported filters or missing permissions produce an error, never a broader replacement query. Unmapped warehouse tables remain metadata-only until approved.</p>
++    </section>
++    {loading||error||!data?<DataState loading={loading} error={error} empty={!data} retry={refetch}/>:<div key={endpoint}><DataVisual id="api.response" data={data} context={{endpoint}}/><details className="enterprise-card p-4"><summary>API reporting context</summary><pre className="text-xs whitespace-pre-wrap break-all">{JSON.stringify(metadata||{},null,2)}</pre></details></div>}
++  </PageShell>;
++}
+diff --git a/src/styles/visuals.css b/src/styles/visuals.css
+new file mode 100644
+index 0000000..647b5d0
+--- /dev/null
++++ b/src/styles/visuals.css
+@@ -0,0 +1,25 @@
++.cx-data-visual,.cx-visual-table,.cx-visual-explorer{min-width:0;width:100%;max-width:100%;white-space:normal;box-sizing:border-box}
++.cx-visual-table{margin:8px 0 16px}.cx-original-table{max-width:100%;overflow:auto}.cx-viz-tabs{display:flex;gap:3px;padding:7px 10px;background:#edf3f7;border:1px solid #dfe7ee;border-radius:10px 10px 0 0}
++.cx-viz-tabs button{font-size:12px;padding:7px 12px;border-radius:7px;color:#3c5369}.cx-viz-tabs button[aria-pressed=true]{background:white;color:#066977;box-shadow:0 1px 4px #15345115;font-weight:600}
++.cx-viz{min-width:0;background:#fff;border:1px solid #dfe7ee;border-radius:12px;padding:20px;margin:0 0 12px;box-sizing:border-box;color:#17283d}
++.cx-viz:fullscreen{overflow:auto;padding:30px;max-width:none}.cx-viz-heading{display:flex;justify-content:space-between;gap:14px;margin-bottom:16px}.cx-viz-kicker{display:flex;gap:7px;align-items:center;color:#087783;letter-spacing:.09em;font-size:10px;font-weight:700;margin-bottom:8px}
++.cx-viz-heading h3{font-size:17px;font-weight:650;line-height:1.3;margin:0 0 6px;overflow-wrap:anywhere}.cx-viz-heading p{font-size:12px;line-height:1.55;color:#536579;max-width:780px;margin:0}.cx-viz-actions{display:flex;gap:6px;align-items:flex-start}.cx-viz-actions button{padding:8px;background:#f1f5f8;border-radius:8px}
++.cx-viz-controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;background:#f7f9fb;border:1px solid #e8eef3;padding:12px;border-radius:9px}
++.cx-viz label{display:flex;flex-direction:column;gap:6px;font-size:11px;font-weight:600;color:#445970;min-width:0}.cx-viz input,.cx-viz select,.cx-viz-dataset select{width:100%;min-width:0;max-width:100%;font-size:12px;min-height:38px;border:1px solid #d8e2e9;background:#fff;color:#19344d;border-radius:7px;padding:7px 9px;box-sizing:border-box}
++.cx-viz select:disabled{opacity:.6}.cx-viz button{cursor:pointer}.cx-viz button:disabled{opacity:.45;cursor:not-allowed}.cx-viz button:focus-visible,.cx-viz input:focus-visible,.cx-viz select:focus-visible,.cx-viz-tabs button:focus-visible{outline:2px solid #087f8c;outline-offset:3px}
++.cx-viz-tools{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin:13px 0}.cx-viz-tools label{flex:1;min-width:160px}.cx-viz-tools button{border:1px solid #dae4eb;border-radius:7px;padding:9px 11px;display:flex;align-items:center;gap:6px;font-size:11px;background:#fff}
++.cx-viz-advanced{margin:10px 0}.cx-viz-caption,.cx-viz-axis-note{font-size:11px;color:#5d6d7b;margin:8px 0;line-height:1.55;overflow-wrap:anywhere}.cx-viz-caption{font-variant-numeric:tabular-nums}.cx-viz-warning{font-size:11px;padding:10px;border-left:3px solid #b1792b;background:#fff7e9;border-radius:4px;color:#785220}
++.cx-viz-tooltip{background:white;padding:12px 14px;box-shadow:0 4px 20px #17364d20;border:1px solid #dce7ed;border-radius:8px;max-width:310px;white-space:normal;overflow-wrap:anywhere;font-size:12px;line-height:1.6}.cx-viz-tooltip small{font-size:10px;color:#52687a}.cx-viz-canvas{min-width:0;width:100%;max-width:100%;overflow:hidden}.cx-viz-canvas text{font-family:inherit}
++.cx-viz-updating{opacity:.65}.cx-viz-placeholder,.cx-viz-empty{min-height:100px;padding:22px;display:flex;justify-content:center;align-items:center;flex-direction:column;gap:12px;border:1px dashed #ccdbe4;background:#f6f9fb;border-radius:10px;font-size:12px;color:#52677a}.cx-viz-placeholder button{border:1px solid #bdcdd7;padding:8px 12px;border-radius:7px;background:white;color:#087582}
++.cx-viz-window{display:flex;align-items:center;gap:12px;border-top:1px solid #e8eef2;padding:12px 0}.cx-viz-window label{flex:1;min-width:0}.cx-viz-window input{min-height:15px;padding:0;accent-color:#087f8c}.cx-viz-window button{border:1px solid #d7e1e8;border-radius:6px;padding:7px 10px;font-size:11px}
++.cx-viz-exact{font-size:12px;border-top:1px solid #e4ebf1;padding-top:10px}.cx-viz-exact summary{cursor:pointer;color:#176276;font-weight:600}.cx-viz-exact p{font-size:11px;color:#647587;margin:9px 0}.cx-viz-point-list{max-height:240px;overflow:auto;display:grid;gap:4px}.cx-viz-point-list button{display:flex;gap:15px;justify-content:space-between;text-align:left;padding:8px;background:#f5f8fa;border-radius:6px;font-size:11px;overflow-wrap:anywhere}.cx-viz-point-list button span:last-child{font-variant-numeric:tabular-nums}
++.cx-viz-inspect{margin-top:12px;padding:14px;background:#edf8f8;border:1px solid #bbdddd;border-radius:8px;font-size:12px;overflow-wrap:anywhere}.cx-viz-inspect>button:first-child{float:right}.cx-viz-inspect>button:last-child{color:#066977;text-decoration:underline}.cx-viz-inspect p{margin:5px 0}
++.cx-viz-heatmap{display:grid;grid-template-columns:repeat(auto-fit,minmax(95px,1fr));gap:6px;overflow:auto;padding:12px 0}.cx-viz-heatmap button{display:flex;flex-direction:column;text-align:left;gap:12px;border-radius:8px;min-height:80px;padding:12px}.cx-viz-heatmap span{font-size:10px;overflow-wrap:anywhere}.cx-viz-heatmap strong{font-size:18px;font-variant-numeric:tabular-nums}
++.cx-viz-dataset{padding:12px 16px;background:#eaf3f5;display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 8px;border-radius:9px;color:#185261;font-size:12px;font-weight:600}.cx-viz-dataset select{flex:1;min-width:130px;max-width:420px}.cx-viz-dataset small{font-size:10px;font-weight:400}
++.cx-visual-workspace-intro{border:1px solid #d5e5ec;background:linear-gradient(120deg,#eff8f9,#f5f7fb);border-radius:12px;padding:20px;margin-bottom:18px}.cx-visual-workspace-intro p{font-size:13px;line-height:1.65;color:#486276}.cx-visual-workspace-intro select{display:block;margin-top:8px;max-width:100%;width:460px;padding:11px;border:1px solid #c8d9e1;border-radius:8px;background:#fff}.cx-visual-workspace-intro label{display:block;margin-top:14px;font-size:12px;font-weight:600}
++@media(max-width:900px){.cx-viz-controls{grid-template-columns:repeat(2,minmax(0,1fr))}}
++@media(max-width:540px){.cx-viz{padding:12px;border-radius:9px}.cx-viz-heading{gap:8px}.cx-viz-heading h3{font-size:15px}.cx-viz-heading p{font-size:11px}.cx-viz-controls{gap:8px;padding:9px}.cx-viz-tools{gap:6px}.cx-viz-tools label{flex-basis:100%}.cx-viz-tools button{padding:8px;font-size:10px}.cx-viz-tabs{padding:6px}.cx-viz-tabs button{font-size:11px;padding:7px 9px}.cx-viz-dataset{padding:10px;gap:7px}.cx-viz-dataset select{min-width:100%;}.cx-viz-canvas{overflow:hidden}.cx-viz-tooltip{max-width:230px}}
++@media(prefers-reduced-motion:reduce){.cx-viz *{transition:none!important;animation:none!important}}
++@media print{.cx-viz-controls,.cx-viz-tools,.cx-viz-tabs,.cx-viz-actions,.cx-viz-exact,.cx-viz-window{display:none}.cx-viz{break-inside:avoid;box-shadow:none}}
++
++.cx-chart-adjust-modal{width:min(1080px,calc(100vw - 28px));max-height:90dvh;overflow:auto;}
