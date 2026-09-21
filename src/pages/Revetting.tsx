@@ -6,12 +6,15 @@ import KpiCard from '../components/KpiCard';
 import { TableSkeleton } from '../components/Skeleton';
 import { useAnalyticsData } from '../lib/useAnalyticsData';
 import { useClient } from '../lib/ClientContext';
+import { DataState } from '../components/DataState';
 import { ShieldCheck, AlertCircle, CheckCircle2, Award } from 'lucide-react';
 
 export default function Revetting() {
   const { clientConfig } = useClient();
   const currencyPrefix = clientConfig?.currency === 'ZAR' ? 'R ' : clientConfig?.currency === 'GBP' ? '£' : '$';
-  const { data, loading, error } = useAnalyticsData('revetting');
+  const { data, loading, error, refetch } = useAnalyticsData('revetting');
+
+  if (error) return <PageShell><PageHeader title="Re-vetting"/><DataState error={error} retry={refetch}/></PageShell>;
 
   if (loading) {
     return (

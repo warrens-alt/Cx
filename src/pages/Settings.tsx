@@ -8,27 +8,33 @@ export default function Settings() {
   const { selectedClient } = useClient();
   const [status, setStatus] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [attempt,setAttempt] = useState(0);
 
   useEffect(() => {
     if (!selectedClient) return;
-    fetch(`/api/analytics/health?clientId=${selectedClient}`)
-      .then(res => res.json())
+    const controller=new AbortController();
+    setLoading(true);setStatus(null);
+    fetch(`/api/analytics/health?${new URLSearchParams({clientId:selectedClient})}`,{signal:controller.signal,credentials:'same-origin'})
+      .then(async res => {const payload=await res.json();if(!res.ok)throw new Error(typeof payload.error==='string'?payload.error:`Connection check failed (${res.status})`);return payload;})
       .then(data => {
+        if(controller.signal.aborted)return;
         setStatus(data);
         setLoading(false);
       })
-      .catch(() => {
-        setStatus({ success: false, error: 'Could not reach server.' });
+      .catch(error => {
+        if(controller.signal.aborted)return;
+        setStatus({ success: false, error: error instanceof Error ? error.message : 'Could not reach server.' });
         setLoading(false);
       });
-  }, [selectedClient]);
+    return ()=>controller.abort();
+  }, [selectedClient,attempt]);
 
   return (
     <PageShell>
       <PageHeader 
         title="System & Data Pipeline Status" 
         category="Infrastructure Telemetry"
-        description="Verify service account authentication, BigQuery connection status, and real-time streaming health." 
+        description="Inspect the selected workspace’s connection check and latest reported source timestamp. This is not a reconciliation or ingestion-completeness check."
       />
 
       <div className="max-w-3xl space-y-8">
@@ -45,20 +51,20 @@ export default function Settings() {
               <div className="space-y-6">
                 <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 px-4 py-3 rounded-lg border border-emerald-100">
                   <CheckCircle2 className="w-5 h-5" />
-                  <span className="font-medium text-sm">System Healthy: {status.client}</span>
+                  <span className="font-medium text-sm">Connection check succeeded: {status.client || selectedClient}</span>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div className="p-4 bg-surface-sec rounded border border-slate-100">
                     <div className="text-text-sec mb-1 flex items-center gap-2"><Server className="w-4 h-4"/> Authentication</div>
                     <div className="font-medium">Service Account (ADC)</div>
                   </div>
                   <div className="p-4 bg-surface-sec rounded border border-slate-100">
                     <div className="text-text-sec mb-1 flex items-center gap-2"><Key className="w-4 h-4"/> Client ID</div>
-                    <div className="font-medium">default</div>
+                    <div className="font-medium break-words">{selectedClient}</div>
                   </div>
                   <div className="p-4 bg-surface-sec rounded border border-slate-100">
-                    <div className="text-text-sec mb-1 flex items-center gap-2"><Table className="w-4 h-4"/> Last Data Sync</div>
+                    <div className="text-text-sec mb-1 flex items-center gap-2"><Table className="w-4 h-4"/> Latest Reported Source Timestamp</div>
                     <div className="font-medium">{status.health?.latestData ? new Date(status.health.latestData.value).toLocaleString() : 'N/A'}</div>
                   </div>
                   <div className="p-4 bg-surface-sec rounded border border-slate-100">
@@ -72,11 +78,12 @@ export default function Settings() {
                 </div>
               </div>
             ) : (
-              <div className="flex items-start gap-3 text-red-700 bg-red-50 p-4 rounded-lg border border-red-100">
+              <div role="alert" className="flex items-start gap-3 text-red-700 bg-red-50 p-4 rounded-lg border border-red-100">
                 <AlertCircle className="w-5 h-5 mt-0.5" />
                 <div>
                   <h4 className="font-medium text-sm">Connection Failed</h4>
                   <p className="text-sm mt-1 opacity-90">{status?.error || status?.health?.error || 'Unknown error'}</p>
+                  <button type="button" className="cx-button-secondary mt-3" onClick={()=>setAttempt(value=>value+1)}>Retry connection check</button>
                 </div>
               </div>
             )}

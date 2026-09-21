@@ -6,13 +6,16 @@ import KpiCard from '../components/KpiCard';
 import { TableSkeleton } from '../components/Skeleton';
 import { useAnalyticsData } from '../lib/useAnalyticsData';
 import { useClient } from '../lib/ClientContext';
+import { DataState } from '../components/DataState';
 import { GitBranch, GitFork, Clock, AlertTriangle, ShieldCheck, ArrowRight, CheckCircle2 } from 'lucide-react';
 
 export default function RoutingIntelligence() {
   const { clientConfig } = useClient();
   const currencyPrefix = clientConfig?.currency === 'ZAR' ? 'R ' : clientConfig?.currency === 'GBP' ? '£' : '$';
-  const { data, loading, error } = useAnalyticsData('routing');
+  const { data, loading, error, refetch } = useAnalyticsData('routing');
   const [activeTab, setActiveTab] = useState<'paths' | 'handoff' | 'missing'>('paths');
+
+  if (error) return <PageShell><PageHeader title="Lead Routing"/><DataState error={error} retry={refetch}/></PageShell>;
 
   if (loading) {
     return (
@@ -92,7 +95,7 @@ export default function RoutingIntelligence() {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 mb-6 pb-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 mb-6 pb-2">
         <button
           onClick={() => setActiveTab('paths')}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${

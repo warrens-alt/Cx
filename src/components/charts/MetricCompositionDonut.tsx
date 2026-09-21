@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { formatChartAxis, formatTableNumber } from '../../lib/formatters';
 import { ChartToolbar } from './ChartToolbar';
+import { categoryColour } from '../../lib/visuals/palette';
 
 interface DonutSlice {
   name: string;
@@ -25,19 +26,6 @@ interface MetricCompositionDonutProps {
   auditContext?: any;
   auditGrain?: string;
 }
-
-const DEFAULT_PALETTE = [
-  '#0D9488', // Primary Teal
-  '#0F1E2E', // Deep Navy
-  '#0284C7', // Sky Blue
-  '#6366F1', // Indigo
-  '#D97706', // Warm Amber
-  '#059669', // Emerald
-  '#7C3AED', // Violet
-  '#DB2777', // Berry Pink
-  '#475569', // Slate
-  '#0891B2'  // Cyan
-];
 
 export function MetricCompositionDonut({
   title,
@@ -113,7 +101,7 @@ export function MetricCompositionDonut({
               onMouseLeave={() => setActiveIndex(null)}
             >
               {data.map((entry, index) => {
-                const color = entry.color || DEFAULT_PALETTE[index % DEFAULT_PALETTE.length];
+                const color = entry.color || categoryColour(entry.name);
                 const isHovered = activeIndex === index;
                 return (
                   <Cell

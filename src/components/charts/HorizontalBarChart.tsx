@@ -49,7 +49,7 @@ export function HorizontalBarChart({
               type="number"
               axisLine={false} 
               tickLine={false} 
-              tick={{ fontSize: 11, fill: '#64748b' }} 
+              tick={{ fontSize: 12, fill: '#64748b' }}
               tickFormatter={(val) => `${valuePrefix}${formatChartAxis(val)}${valueSuffix}`}
             />
             <YAxis 
@@ -57,7 +57,7 @@ export function HorizontalBarChart({
               dataKey={categoryKey} 
               axisLine={false} 
               tickLine={false} 
-              tick={{ fontSize: 11, fill: '#334155', fontWeight: 500 }} 
+              tick={{ fontSize: 12, fill: '#334155', fontWeight: 500 }}
               width={135}
             />
             <RechartsTooltip 

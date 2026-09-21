@@ -4,7 +4,11 @@ export function safeDensity(value: unknown): TableDensity { return value === 'co
 export function isCurrentPage(pathname: string, path: string): boolean { return pathname === path || pathname.startsWith(path + '/'); }
 /** Preserve legacy report filters when moving between legacy pages; evidence scope remains separate. */
 export function navigationTarget(path: string, currentPath: string, search: string) {
-  return { pathname: path, search: path === '/reports' || currentPath === '/reports' ? '' : search };
+  if (path !== '/reports' && currentPath !== '/reports') return { pathname: path, search };
+  const workspace = new URLSearchParams();
+  // Preserve repeated invalid values so navigation does not silently broaden their scope.
+  for (const id of new URLSearchParams(search).getAll('workspace')) workspace.append('workspace', id);
+  return { pathname: path, search: workspace.size ? '?' + workspace.toString() : '' };
 }
 export function utcDatePresets(now = new Date()) {
   const end = now.toISOString().slice(0,10);

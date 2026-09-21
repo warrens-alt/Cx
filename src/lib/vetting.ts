@@ -1,6 +1,7 @@
 import { countRatio, periodChange, VETTING_METRICS, type VettingGroup, type VettingMetric, type VettingReport } from '../../contracts/vetting';
 import { compareExactDecimal } from './breakdown';
 import type { VisualDataset } from './visuals/model';
+import { categoryColour } from './visuals/palette';
 export const VETTING_MEASURES = [
   {key:'leads', label:'Included Leads', unit:'leads'},
   {key:'share', label:'Share of Included Leads (%)', unit:'percent'},
@@ -34,9 +35,8 @@ export function classMovement(report:VettingReport,section:'class'|'colour'){
     return {key,current:c,previous:p,delta:change.delta,changePercent:change.percent,currentShare:countRatio(c,report.current.leads),previousShare:countRatio(p,report.previous.leads)};
   }).sort((a,b)=>compareExactDecimal(b.current,a.current));
 }
-export function colourFill(label:string,index=0){
-  const colours:Record<string,string>={Green:'#257d57',Blue:'#356db6',Orange:'#d78a28',Charcoal:'#485666',Purple:'#8056a6',Red:'#ba4658'};
-  return colours[label] || ['#087f8c','#4c67a3','#9674b3','#bd8047','#519378','#9c5e78'][index%6];
+export function colourFill(label:string,_index=0){
+  return categoryColour(label);
 }
 export function csvText(headers:string[],rows:unknown[][]){
   const cell=(v:unknown)=>{const text=String(v??'');const protectedText=/^[\s\uFEFF]*[=+@]/.test(text)||(/^\s*-/.test(text)&&! /^-?\d+(\.\d+)?$/.test(text))?`'${text}`:text;return `"${protectedText.replace(/"/g,'""')}"`;};

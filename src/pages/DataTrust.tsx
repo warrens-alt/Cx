@@ -6,14 +6,18 @@ import KpiCard from '../components/KpiCard';
 import { TableSkeleton } from '../components/Skeleton';
 import { useAnalyticsData } from '../lib/useAnalyticsData';
 import { useClient } from '../lib/ClientContext';
+import { DataState } from '../components/DataState';
 import { ShieldCheck, AlertTriangle, CheckCircle2, Clock, XCircle, Info, Database, Layers } from 'lucide-react';
 
 export default function DataTrust() {
   const { clientConfig } = useClient();
   const currencyPrefix = clientConfig?.currency === 'ZAR' ? 'R ' : clientConfig?.currency === 'GBP' ? '£' : '$';
-  const { data, loading, error } = useAnalyticsData('data-trust');
-  const { data: multiVendorData } = useAnalyticsData('multi-vendor');
+  const { data, loading, error, refetch } = useAnalyticsData('data-trust');
+  const { data: multiVendorData, error: multiVendorError, refetch: retryMultiVendor } = useAnalyticsData('multi-vendor');
   const [activeTab, setActiveTab] = useState<'matrix' | 'anomalies' | 'multivendor'>('matrix');
+
+  if (error) return <PageShell><PageHeader title="Data Checks"/><DataState error={error} retry={refetch}/></PageShell>;
+  if (activeTab==='multivendor' && multiVendorError) return <PageShell><PageHeader title="Data Checks"/><DataState error={multiVendorError} retry={retryMultiVendor}/><button type="button" className="cx-button-secondary mt-4" onClick={()=>setActiveTab('matrix')}>Return to capability matrix</button></PageShell>;
 
   if (loading) {
     return (
@@ -141,7 +145,7 @@ export default function DataTrust() {
       </div>
 
       {/* Sub Navigation */}
-      <div className="flex items-center gap-2 border-b border-slate-200 mb-6 pb-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 mb-6 pb-2">
         <button
           onClick={() => setActiveTab('matrix')}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${

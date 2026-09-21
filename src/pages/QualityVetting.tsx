@@ -9,11 +9,14 @@ import { DistributionBar } from '../components/charts/DistributionBar';
 import KpiCard from '../components/KpiCard';
 import { useAnalyticsData } from '../lib/useAnalyticsData';
 import { useClient } from '../lib/ClientContext';
+import { DataState } from '../components/DataState';
 
 export default function QualityVetting() {
-  const { data: qualityData, loading } = useAnalyticsData('quality');
+  const { data: qualityData, loading, error, refetch } = useAnalyticsData('quality');
   const { clientConfig } = useClient();
   const currencyPrefix = clientConfig?.currency === 'ZAR' ? 'R' : '$';
+
+  if (error) return <PageShell><PageHeader title="Lead Validation & Vetting"/><DataState error={error} retry={refetch}/></PageShell>;
 
   if (loading) {
     return (

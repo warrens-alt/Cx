@@ -6,13 +6,16 @@ import KpiCard from '../components/KpiCard';
 import { TableSkeleton } from '../components/Skeleton';
 import { useAnalyticsData } from '../lib/useAnalyticsData';
 import { useClient } from '../lib/ClientContext';
+import { DataState } from '../components/DataState';
 import { Users, Repeat, DollarSign, TrendingDown, Layers, CheckCircle2, ShieldCheck, AlertCircle } from 'lucide-react';
 
 export default function ConsumerReentry() {
   const { clientConfig } = useClient();
   const currencyPrefix = clientConfig?.currency === 'ZAR' ? 'R ' : clientConfig?.currency === 'GBP' ? '£' : '$';
-  const { data, loading, error } = useAnalyticsData('consumers');
+  const { data, loading, error, refetch } = useAnalyticsData('consumers');
   const [activeTab, setActiveTab] = useState<'tiers' | 'sequence' | 'sample'>('tiers');
+
+  if (error) return <PageShell><PageHeader title="Consumer Re-entry"/><DataState error={error} retry={refetch}/></PageShell>;
 
   if (loading) {
     return (
@@ -93,7 +96,7 @@ export default function ConsumerReentry() {
       </div>
 
       {/* Sub Navigation */}
-      <div className="flex items-center gap-2 border-b border-slate-200 mb-6 pb-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 mb-6 pb-2">
         <button
           onClick={() => setActiveTab('tiers')}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${

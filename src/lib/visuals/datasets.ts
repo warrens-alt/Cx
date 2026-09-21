@@ -139,3 +139,10 @@ export const API_VISUAL_REPORTS=[
   ['data-quality','Data Quality'],['vendor-coverage','Vendor Field Coverage'],['parameter-coverage','Source Parameters (Administrator)'],['leads','Loaded Lead Records'],['validation','Reconciliation Status'],['acquisition','Media Channels'],['source-coverage','Source Inventory (Administrator)'],
   ...Object.entries(SOURCE_DEFINITIONS).map(([role,d])=>['source-metrics/'+role,d.label+' (Source Date)']),
 ] as const;
+
+/** Retain endpoint IDs while giving the workspace a scan-friendly source hierarchy. */
+export const API_VISUAL_REPORT_GROUPS = [
+  {label:'Performance and operations', endpoints:['overview','funnel','calls','speed-to-lead','cohorts','timeseries','sources','quality','outcomes','outcomes-quality','routing','consumers','revetting','multi-vendor','leads','acquisition']},
+  {label:'Data quality and administration', endpoints:['data-trust','data-quality','vendor-coverage','parameter-coverage','validation','source-coverage']},
+  {label:'Source-specific recorded data', endpoints:Object.keys(SOURCE_DEFINITIONS).map(role=>'source-metrics/'+role)},
+].map(group=>({...group,reports:API_VISUAL_REPORTS.filter(([endpoint])=>group.endpoints.includes(endpoint))}));

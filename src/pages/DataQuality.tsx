@@ -7,9 +7,12 @@ import { TableSkeleton } from '../components/Skeleton';
 import { ShieldAlert, AlertTriangle, CheckCircle, Clock, Loader2 } from 'lucide-react';
 import { useAnalyticsData } from '../lib/useAnalyticsData';
 import PageHeader from '../components/PageHeader';
+import { DataState } from '../components/DataState';
 
 export default function DataQuality() {
-  const { data, loading } = useAnalyticsData('data-quality');
+  const { data, loading, error, refetch } = useAnalyticsData('data-quality');
+
+  if (error) return <PageShell><PageHeader title="Data Quality & Timestamps"/><DataState error={error} retry={refetch}/></PageShell>;
 
   if (loading) {
     return (
@@ -46,7 +49,7 @@ export default function DataQuality() {
         ) : (
           <div className="flex items-center gap-2 px-3.5 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded-lg text-xs font-semibold">
             <CheckCircle className="w-4 h-4" />
-            Ingestion Pipeline Healthy
+            No critical issues returned
           </div>
         )}
       </PageHeader>

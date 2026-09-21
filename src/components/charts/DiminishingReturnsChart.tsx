@@ -67,7 +67,7 @@ export function DiminishingReturnsChart({
               dataKey="bucket" 
               axisLine={false} 
               tickLine={false} 
-              tick={{ fontSize: 11, fill: '#64748b' }} 
+              tick={{ fontSize: 12, fill: '#64748b' }}
               dy={10}
             />
             
@@ -75,7 +75,7 @@ export function DiminishingReturnsChart({
               yAxisId="left" 
               axisLine={false} 
               tickLine={false} 
-              tick={{ fontSize: 11, fill: '#64748b' }} 
+              tick={{ fontSize: 12, fill: '#64748b' }}
               tickFormatter={(val) => formatChartAxis(val)}
             />
             
@@ -84,7 +84,7 @@ export function DiminishingReturnsChart({
               orientation="right"
               axisLine={false} 
               tickLine={false} 
-              tick={{ fontSize: 11, fill: '#64748b' }} 
+              tick={{ fontSize: 12, fill: '#64748b' }}
               tickFormatter={(val) => `${val}%`}
               domain={[0, (dataMax: number) => Math.min(100, Math.ceil(dataMax * 1.25))]}
             />
@@ -118,7 +118,7 @@ export function DiminishingReturnsChart({
                   value: benchmarkLabel, 
                   position: 'insideTopRight', 
                   fill: '#ef4444', 
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 500
                 }} 
               />

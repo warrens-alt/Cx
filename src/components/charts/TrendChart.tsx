@@ -75,14 +75,14 @@ export function TrendChart({
               dataKey={xAxisKey} 
               axisLine={false} 
               tickLine={false} 
-              tick={{ fontSize: 11, fill: '#64748b' }} 
+              tick={{ fontSize: 12, fill: '#64748b' }}
               tickFormatter={(val) => formatChartAxis(val)}
               dy={10}
             />
             <YAxis 
               axisLine={false} 
               tickLine={false} 
-              tick={{ fontSize: 11, fill: '#64748b' }} 
+              tick={{ fontSize: 12, fill: '#64748b' }}
               tickFormatter={(val) => `${valuePrefix}${formatChartAxis(val)}${valueSuffix}`}
               dx={-10} 
             />

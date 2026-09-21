@@ -10,7 +10,7 @@ export interface VisualDataset {
   source?: string; defaultDimension?: string; defaultMeasure?: string;
 }
 export interface VisualSettings { dimension: string; measure: string; compare: string; mode: 'values' | 'records'; search: string; sort: 'source' | 'label' | 'ascending' | 'descending'; offset: number; limit: number; separateAxes?: boolean; }
-export interface VisualPoint { key: string; label: string; exact: string | null; compareExact: string | null; value: number | null; comparison: number | null; rowIndex: number | null; }
+export interface VisualPoint { key: string; label: string; categoryKey?: string; exact: string | null; compareExact: string | null; value: number | null; comparison: number | null; rowIndex: number | null; }
 const scalar = (v: unknown): unknown => v && typeof v === 'object' && 'value' in v ? (v as {value: unknown}).value : v;
 export function field(row: Record<string, unknown>, key: string): unknown {
   if (Object.hasOwn(row, key)) return scalar(row[key]);
@@ -39,6 +39,13 @@ export function labelValue(v: unknown): string {
   if (typeof v === 'boolean') return v ? 'Recorded yes' : 'Recorded no';
   return typeof v === 'object' ? 'Structured value' : String(v);
 }
+/** Display labels may coincide; typed source values must still remain distinct groups. */
+export function categoryIdentity(value: unknown): string {
+  value = scalar(value);
+  if (value === null || value === undefined) return 'missing';
+  if (typeof value === 'object') return `object:${JSON.stringify(value)}`;
+  return `${typeof value}:${String(value)}`;
+}
 export function exactLabel(value: string | null): string {
   if (value === null) return 'Unavailable';
   const [whole, fraction] = value.split('.');
@@ -57,16 +64,28 @@ export function graphPoints(dataset: VisualDataset, input: VisualSettings) {
   let points: VisualPoint[] = [];
   let excluded = 0;
   if (input.mode === 'records' || !metric) {
-    const counts = new Map<string, number>();
-    for (const row of dataset.rows) { const label = dimension ? labelValue(field(row, dimension.key)) : 'Returned records'; if (!term || label.toLocaleLowerCase('en-GB').includes(term)) counts.set(label, (counts.get(label) || 0) + 1); }
-    points = [...counts].map(([label, count], index) => ({ key: String(index), label, exact: String(count), compareExact: null, value: count, comparison: null, rowIndex: null }));
+    const counts = new Map<string, { label: string; count: number }>();
+    for (const row of dataset.rows) {
+      const value = dimension ? field(row, dimension.key) : 'Returned records';
+      const label = labelValue(value), key = categoryIdentity(value);
+      if (!term || label.toLocaleLowerCase('en-GB').includes(term)) {
+        const group = counts.get(key);
+        if (group) group.count++;
+        else counts.set(key, { label, count: 1 });
+      }
+    }
+    const labels = new Map<string, number>();
+    for (const group of counts.values()) labels.set(group.label, (labels.get(group.label) || 0) + 1);
+    points = [...counts].map(([key, {label, count}]) => ({ key, categoryKey: key,
+      label: (labels.get(label) || 0) > 1 ? `${label} (${key === 'missing' ? 'missing' : key === 'string:' ? 'empty text' : key.startsWith('string:') ? 'text' : key.split(':')[0]})` : label,
+      exact: String(count), compareExact: null, value: count, comparison: null, rowIndex: null }));
   } else {
     dataset.rows.forEach((row, index) => {
       const label = dimension ? labelValue(field(row, dimension.key)) : `Row ${index + 1}`;
       if (term && !label.toLocaleLowerCase('en-GB').includes(term)) return;
       const exact = decimal(field(row, metric.key)), compareExact = comparison ? decimal(field(row, comparison.key)) : null;
       const value = plotCoordinate(exact); if (value === null) excluded++;
-      points.push({ key: String(index), label, exact, compareExact, value, comparison: plotCoordinate(compareExact), rowIndex: index });
+      points.push({ key: String(index), categoryKey: dimension ? categoryIdentity(field(row, dimension.key)) : String(index), label, exact, compareExact, value, comparison: plotCoordinate(compareExact), rowIndex: index });
     });
   }
   const collator = new Intl.Collator('en-GB', { numeric: true });

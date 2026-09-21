@@ -23,15 +23,19 @@ import {
   Legend 
 } from 'recharts';
 import { formatTableNumber, formatChartAxis } from '../lib/formatters';
+import { DataState } from '../components/DataState';
 
 export default function Outcomes() {
   const { clientConfig } = useClient();
   const currencyPrefix = clientConfig?.currency === 'ZAR' ? 'R ' : clientConfig?.currency === 'GBP' ? '£' : '$';
-  const { data: outcomesData, loading: outcomesLoading } = useAnalyticsData('outcomes');
-  const { data: qualityData, loading: qualityLoading } = useAnalyticsData('outcomes-quality');
+  const { data: outcomesData, loading: outcomesLoading, error: outcomesError, refetch: retryOutcomes } = useAnalyticsData('outcomes');
+  const { data: qualityData, loading: qualityLoading, error: qualityError, refetch: retryQuality } = useAnalyticsData('outcomes-quality');
   const [activeTab, setActiveTab] = useState<'trends' | 'quality' | 'funnel'>('quality');
 
   const loading = outcomesLoading || qualityLoading;
+
+  if (outcomesError || qualityError) return <PageShell><PageHeader title="Sales, Activations & Recorded Revenue"/><DataState error={outcomesError || qualityError} retry={()=>{retryOutcomes?.();retryQuality?.();}}/></PageShell>;
+  if (!loading && (!outcomesData || !qualityData)) return <PageShell><PageHeader title="Sales, Activations & Recorded Revenue"/><DataState empty/></PageShell>;
 
   if (loading) {
     return (
@@ -147,7 +151,7 @@ export default function Outcomes() {
       )}
 
       {/* Sub Navigation */}
-      <div className="flex items-center gap-2 border-b border-border-subtle pb-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border-subtle pb-2">
         <button
           onClick={() => setActiveTab('quality')}
           className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer ${

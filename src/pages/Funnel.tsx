@@ -8,10 +8,13 @@ import { ChartSkeleton } from '../components/Skeleton';
 import { FunnelWaterfall } from '../components/charts/FunnelWaterfall';
 import { DistributionBar } from '../components/charts/DistributionBar';
 import { ComboChart } from '../components/charts/ComboChart';
+import { DataState } from '../components/DataState';
 
 export default function Funnel() {
-  const { data: funnelData, loading: funnelLoading } = useAnalyticsData('funnel');
-  const { data: callData, loading: callLoading } = useAnalyticsData('calls');
+  const { data: funnelData, loading: funnelLoading, error: funnelError, refetch: retryFunnel } = useAnalyticsData('funnel');
+  const { data: callData, loading: callLoading, error: callError, refetch: retryCalls } = useAnalyticsData('calls');
+
+  if (funnelError || callError) return <PageShell><PageHeader title="Lead Funnel"/><DataState error={funnelError || callError} retry={()=>{retryFunnel?.();retryCalls?.();}}/></PageShell>;
 
   if (funnelLoading || callLoading) {
     return (

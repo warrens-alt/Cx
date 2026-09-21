@@ -2,8 +2,8 @@ import React, { memo, useRef, useState } from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell, Legend, ReferenceLine } from 'recharts';
 import { type ExploreRow, type ExploreView, formatValue, METRICS, donutRows, pivotSeries, TEMPORAL, seriesLabel } from '../../lib/explore/model';
 import { exactLabel, plotCoordinate } from '../../lib/visuals/model';
-const PALETTE=['#147d88','#526db0','#a27545','#8965a2','#4e8e75','#bc6474'];
-function tone(label:string){let h=0;for(const c of label)h=(h*31+c.charCodeAt(0))>>>0;return PALETTE[h%PALETTE.length];}
+import { categoryColour, CHART_PALETTE as PALETTE } from '../../lib/visuals/palette';
+const tone=(label:string)=>categoryColour(String(seriesLabel(label)));
 const axis=(v:unknown)=>typeof v==='number'?new Intl.NumberFormat('en-GB',{notation:'compact',maximumFractionDigits:1}).format(v):String(v??'');
 interface Props { rows:ExploreRow[]; view:ExploreView; currency:string; limit:number; selectedSeries:string[]; onInspect:(row:ExploreRow)=>void; context:string; }
 function ExploreChart({rows,view,currency,limit,selectedSeries,onInspect,context}:Props){

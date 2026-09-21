@@ -1,10 +1,13 @@
 import { VisualTable } from './visuals/DataVisual';
-import React from 'react';
+import React, { useState } from 'react';
 import { formatTableNumber } from '../lib/formatters';
-import { useState, useEffect } from 'react';
 import { X, Download, Table as TableIcon } from 'lucide-react';
 import { useClient } from '../lib/ClientContext';
 import { useFilters } from '../lib/FilterContext';
+import { useAnalyticsData } from '../lib/useAnalyticsData';
+import { recordsCsv, saveBlob } from '../lib/analyticsRequest';
+import { DataState } from './DataState';
+import Modal from './Modal';
 
 interface DataAuditDrawerProps {
   isOpen: boolean;
@@ -14,211 +17,87 @@ interface DataAuditDrawerProps {
   contextFilters?: Record<string, any>;
 }
 
-export default function DataAuditDrawer({
-  isOpen,
-  onClose,
-  title,
-  defaultGrain = 'lead',
-  contextFilters = {}
-}: DataAuditDrawerProps) {
+function columnGroup(key: string): string {
+  const hlc = key.match(/^hlc_(\d+)_/);
+  if (hlc) return `HLC ${hlc[1]}`;
+  if (['lead_id', 'consumer_id', 'capture_date', 'capture_timestamp', 'source', 'medium'].includes(key)) return 'Lead';
+  if (['valid_lead', 'valid_idno', 'phone_valid', 'grade', 'vetting', 'sentinel_capture'].includes(key)) return 'Quality';
+  if (['has_delivery', 'has_call', 'has_rpc', 'has_sale', 'has_activation', 'total_calls', 'first_call_timestamp', 'last_call_timestamp', 'total_revenue'].includes(key)) return 'Outcomes';
+  if (key.startsWith('report_')) return 'Reporting context';
+  return 'Other';
+}
+
+export default function DataAuditDrawer({ isOpen, onClose, title, defaultGrain = 'lead', contextFilters = {} }: DataAuditDrawerProps) {
   const { selectedClient, clientConfig } = useClient();
   const { startDate, endDate, filters } = useFilters();
-  const [data, setData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
   const [grain, setGrain] = useState(defaultGrain);
-
-  const [activeGroups, setActiveGroups] = useState<string[]>(['Lead', 'Quality', 'Outcomes', 'HLC 1']);
-
-  const getColumnGroup = (key: string) => {
-    if (key.match(/^hlc_(\d+)_/)) {
-      const num = key.match(/^hlc_(\d+)_/)[1];
-      return `HLC ${num}`;
-    }
-    if (['lead_id', 'consumer_id', 'capture_date', 'capture_timestamp', 'source', 'medium'].includes(key)) return 'Lead';
-    if (['valid_lead', 'valid_idno', 'phone_valid', 'grade', 'vetting', 'sentinel_capture'].includes(key)) return 'Quality';
-    if (['has_delivery', 'has_call', 'has_rpc', 'has_sale', 'has_activation', 'total_calls', 'first_call_timestamp', 'last_call_timestamp', 'total_revenue'].includes(key)) return 'Outcomes';
-    return 'Other';
-  };
-
-  const allGroups = Array.from(new Set(data.length > 0 ? Object.keys(data[0]).map(getColumnGroup) : []));
-
-  const toggleGroup = (grp: string) => {
-    setActiveGroups(prev => prev.includes(grp) ? prev.filter(g => g !== grp) : [...prev, grp]);
-  };
-
-  
-  useEffect(() => {
-    if (!isOpen) return;
-    
-    setLoading(true);
-    
-    const combinedFilters = { ...filters, ...contextFilters };
-    
-    const params = new URLSearchParams({ 
-      clientId: selectedClient || 'default',
-      grain,
-      format: 'json'
-    });
-    
-    if (startDate) params.append('startDate', startDate);
-    if (endDate) params.append('endDate', endDate);
-    if (Object.keys(combinedFilters).length > 0) {
-      params.append('filters', JSON.stringify(combinedFilters));
-    }
-    
-    fetch('/api/analytics/export?' + params.toString())
-      .then(res => res.json())
-      .then(res => {
-        if (res.success && Array.isArray(res.data)) {
-          setData(res.data);
-        } else {
-          setData([]);
-        }
-        setLoading(false);
-      })
-      .catch(() => {
-        setLoading(false);
-      });
-  }, [isOpen, grain, selectedClient, startDate, endDate, JSON.stringify(filters), JSON.stringify(contextFilters)]);
-
-  const handleExport = (format: 'csv' | 'xlsx') => {
-    const combinedFilters = { ...filters, ...contextFilters };
-    const params = new URLSearchParams({ 
-      clientId: selectedClient || 'default',
-      grain,
-      format
-    });
-    
-    if (startDate) params.append('startDate', startDate);
-    if (endDate) params.append('endDate', endDate);
-    if (Object.keys(combinedFilters).length > 0) {
-      params.append('filters', JSON.stringify(combinedFilters));
-    }
-    
-    const url = '/api/analytics/export?' + params.toString();
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', '');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  const [activeGroups, setActiveGroups] = useState<string[]>(['Lead', 'Quality', 'Outcomes', 'Other', 'HLC 1']);
+  const query = useAnalyticsData<Record<string, unknown>[]>('export', { grain, format: 'json' }, { enabled: isOpen, contextFilters });
+  const responseError = query.error || (query.data !== null && (!Array.isArray(query.data) || query.data.some(row => !row || typeof row !== 'object' || Array.isArray(row))) ? 'The record response is incomplete. Please retry.' : null);
+  const data = !responseError && Array.isArray(query.data) ? query.data : [];
+  const scopeKey = JSON.stringify([selectedClient, startDate, endDate, filters, contextFilters, grain]);
+  const [pageState, setPage] = useState({ scopeKey, value: 1 });
+  const page = pageState.scopeKey === scopeKey ? pageState.value : 1;
+  const pageSize = 50;
+  const pageCount = Math.max(1, Math.ceil(data.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const offset = (currentPage - 1) * pageSize;
+  const allColumns = [...new Set(data.flatMap(row => Object.keys(row)))];
+  const allGroups = [...new Set(allColumns.map(columnGroup))];
+  // A record identifier stays visible even when its column group is hidden.
+  const columns = allColumns.filter(key => key === 'lead_id' || activeGroups.includes(columnGroup(key)));
+  const uniqueLeads = new Set(data.map(row => row.lead_id).filter(value => value !== null && value !== undefined)).size;
+  const busy = query.loading || query.fetching;
+  const toggleGroup = (group: string) => setActiveGroups(previous => previous.includes(group) ? previous.filter(item => item !== group) : [...previous, group]);
 
   if (!isOpen) return null;
-
-  const uniqueLeads = new Set(data.map(r => r['Lead ID'])).size;
-
-  return (
-    <>
-      <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100]" onClick={onClose} />
-      <div className="fixed top-0 right-0 h-full w-[900px] max-w-[95vw] bg-surface shadow-2xl z-[110] flex flex-col slide-in-right">
-        <div className="flex items-center justify-between p-6 border-b border-border-subtle bg-surface-sec">
-          <div>
-            <h2 className="text-xl font-bold text-text-main flex items-center gap-2">
-              <TableIcon className="w-5 h-5 text-teal" />
-              {title}
-            </h2>
-            <p className="text-sm text-text-sec mt-1">Audit the underlying data for this metric or chart.</p>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
+  return <Modal open onClose={onClose} label={title} className="w-[min(64rem,calc(100vw-2rem))]">
+    <div className="flex flex-col max-h-[80dvh] min-w-0">
+      <header className="flex items-start justify-between gap-3 p-4 sm:p-6 border-b border-border-subtle bg-surface-sec">
+        <div className="min-w-0">
+          <h2 className="text-xl font-bold text-text-main flex items-center gap-2"><TableIcon className="w-5 h-5 text-teal shrink-0" />{title}</h2>
+          <p className="text-sm text-text-sec mt-1">Supporting records · {clientConfig?.name} · capture dates {startDate} to {endDate}. Active and chart filters apply.</p>
         </div>
-        
-        <div className="p-6 border-b border-border-subtle bg-slate-50/50 flex flex-wrap items-center gap-6 text-sm">
-          <div>
-            <span className="text-text-mute font-medium block text-xs uppercase tracking-wider mb-1">Data Grain</span>
-            <select 
-              value={grain} 
-              onChange={e => setGrain(e.target.value)}
-              className="bg-white border rounded px-2 py-1 font-semibold text-text-main"
-            >
-              <option value="lead">Unique Lead</option>
-              <option value="transaction">Lead × Vendor Transaction</option>
-            </select>
-          </div>
-          <div>
-            <span className="text-text-mute font-medium block text-xs uppercase tracking-wider mb-1">Rows</span>
-            <span className="font-semibold text-text-main">{formatTableNumber(data.length)}</span>
-          </div>
-          <div>
-            <span className="text-text-mute font-medium block text-xs uppercase tracking-wider mb-1">Unique Leads</span>
-            <span className="font-semibold text-text-main">{formatTableNumber(uniqueLeads)}</span>
-          </div>
-          <div>
-            <span className="text-text-mute font-medium block text-xs uppercase tracking-wider mb-1">Timezone</span>
-            <span className="font-semibold text-text-main">{clientConfig?.timezone || 'UTC'}</span>
-          </div>
-          <div>
-            <span className="text-text-mute font-medium block text-xs uppercase tracking-wider mb-1">Data As Of</span>
-            <span className="font-semibold text-text-main">{new Date().toLocaleString()}</span>
-          </div>
-          <div className="flex-1" />
-          <div className="flex gap-2">
-            <button onClick={() => handleExport('csv')} className="flex items-center gap-2 px-4 py-2 bg-white border border-border-strong rounded-md text-sm font-medium hover:bg-slate-50 transition-colors">
-              <Download className="w-4 h-4" />
-              Export CSV
-            </button>
-          </div>
-        </div>        
-        <div className="flex-1 overflow-auto p-6 bg-slate-50">
-          {loading ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal"></div>
-            </div>
-          ) : data.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-text-mute">
-              <TableIcon className="w-12 h-12 mb-4 opacity-20" />
-              <p>No records found for the current filter context.</p>
-            </div>
-          ) : (
-            <>
-              <div className="mb-4 flex flex-wrap gap-2">
-                <span className="text-xs font-semibold text-text-mute flex items-center mr-2">COLUMN GROUPS:</span>
-                {allGroups.map(grp => (
-                  <button 
-                    key={grp}
-                    onClick={() => toggleGroup(grp)}
-                    className={`px-2 py-1 text-xs rounded-md font-medium transition-colors ${activeGroups.includes(grp) ? 'bg-teal text-white' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
-                  >
-                    {grp}
-                  </button>
-                ))}
-              </div>
-              <div className="bg-white border rounded-lg shadow-sm overflow-auto max-h-full">
-              <VisualTable visual={{id:'legacy.audit',data:(data)}} className="w-full text-left border-collapse text-sm whitespace-nowrap">
-                <thead className="bg-slate-50 sticky top-0 z-10">
-                  <tr>
-                    {Object.keys(data[0]).filter(k => activeGroups.includes(getColumnGroup(k))).map(key => (
-                      <th key={key} className="p-3 font-semibold text-text-sec border-b">{key}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border-subtle">
-                  {data.slice(0, 100).map((row, i) => (
-                    <tr key={i} className="hover:bg-slate-50/50">
-                      {Object.entries(row).filter(([k]) => activeGroups.includes(getColumnGroup(k))).map(([k, val]: any, j) => (
-                        <td key={j} className="p-3 text-text-main">
-                          {val === null ? <span className="text-slate-300 italic">null</span> :
-                           typeof val === 'boolean' ? (val ? 'True' : 'False') :
-                           String(val)}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </VisualTable>
-
-              {data.length > 100 && (
-                <div className="p-4 text-center text-text-mute text-sm border-t">
-                  Showing first 100 of {formatTableNumber(data.length)} rows. Export to see all records.
-                </div>
-              )}
-            </div>
-            </>
-          )}
-        </div>
+        <button type="button" onClick={onClose} aria-label="Close supporting records" className="cx-icon-button shrink-0"><X size={20} /></button>
+      </header>
+      <div className="p-4 border-b border-border-subtle flex flex-wrap items-end gap-4 text-sm">
+        <label className="flex flex-col gap-1"><span className="font-medium">Record unit</span>
+          <select value={grain} onChange={event => setGrain(event.target.value)} className="bg-white border rounded px-3 py-2">
+            <option value="lead">Unique lead</option><option value="transaction">Lead × vendor transaction</option>
+          </select>
+        </label>
+        <div><span className="block text-text-sec">Returned records</span><strong>{busy ? 'Loading…' : responseError ? 'Unavailable' : formatTableNumber(data.length)}</strong></div>
+        <div><span className="block text-text-sec">Unique lead identifiers</span><strong>{busy ? 'Loading…' : responseError ? 'Unavailable' : formatTableNumber(uniqueLeads)}</strong></div>
+        <div className="flex-1" />
+        <button type="button" disabled={busy || !!responseError || !data.length}
+          onClick={() => saveBlob(new Blob([recordsCsv(data)], { type: 'text/csv;charset=utf-8' }), `conversionx-${grain}-loaded-records.csv`)}
+          className="cx-button-secondary"><Download size={16} />Export all loaded records</button>
       </div>
-    </>
-  );
+      <div className="overflow-auto p-4 sm:p-6 space-y-4">
+        {query.loading || responseError ? <DataState loading={query.loading} error={responseError} retry={query.refetch} /> : !data.length ?
+          <p role="status" className="py-8 text-text-sec">No records matched this record unit and reporting scope. Adjust the filters or dates to try again.</p> : <>
+          {query.fetching && <p role="status">Updating records for the same scope… Export is paused until the update finishes.</p>}
+          <p className="text-sm text-text-sec">{formatTableNumber(data.length)} returned records. {query.metadata?.truncated === true ? 'The API row limit was reached; this is a partial response. Narrow the scope for a more complete extract.' : 'This loaded response is not a certification of source completeness.'} Exports include all loaded rows and reporting-context columns, independently of pagination or column visibility.</p>
+          {query.metadata?.generatedAt && <p className="text-sm text-text-sec">Response generated: {String(query.metadata.generatedAt)}. Source freshness is not established by this timestamp.</p>}
+          <fieldset className="flex flex-wrap gap-2"><legend className="text-sm font-semibold mb-2">Visible column groups</legend>
+            {allGroups.map(group => <button key={group} type="button" aria-pressed={activeGroups.includes(group)} onClick={() => toggleGroup(group)}
+              className={`cx-button-secondary ${activeGroups.includes(group) ? 'bg-teal/10 border-teal' : ''}`}>{group}</button>)}
+          </fieldset>
+          <div className="border rounded-lg overflow-auto" tabIndex={0} role="region" aria-label="Supporting records table">
+            <VisualTable visual={{ id: 'legacy.audit', data }} initialView="table" className="w-full text-left border-collapse text-sm whitespace-nowrap">
+              <thead className="bg-surface-sec"><tr>{columns.map(key => <th key={key} scope="col" className="p-3 font-semibold border-b">{key}</th>)}</tr></thead>
+              <tbody>{data.slice(offset, offset + pageSize).map((row, index) => <tr key={`${row.lead_id ?? 'record'}-${row.transaction_id ?? offset + index}`} className="border-b border-border-subtle">
+                {columns.map(key => <td key={key} className="p-3 text-text-main">{row[key] === null || row[key] === undefined ? <span className="text-text-sec">Unavailable</span> : typeof row[key] === 'boolean' ? (row[key] ? 'True' : 'False') : typeof row[key] === 'object' ? JSON.stringify(row[key]) : String(row[key])}</td>)}
+              </tr>)}</tbody>
+            </VisualTable>
+          </div>
+          <nav aria-label="Supporting records pagination" className="flex flex-wrap items-center justify-between gap-3 text-sm">
+            <span>Showing {offset + 1}–{Math.min(offset + pageSize, data.length)} of {formatTableNumber(data.length)} loaded records</span>
+            <div className="flex gap-2"><button type="button" className="cx-button-secondary" disabled={currentPage === 1 || busy} onClick={() => setPage({ scopeKey, value: currentPage - 1 })}>Previous records</button>
+              <button type="button" className="cx-button-secondary" disabled={currentPage === pageCount || busy} onClick={() => setPage({ scopeKey, value: currentPage + 1 })}>Next records</button></div>
+          </nav>
+        </>}
+      </div>
+    </div>
+  </Modal>;
 }

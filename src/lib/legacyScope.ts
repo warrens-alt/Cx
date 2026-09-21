@@ -1,5 +1,6 @@
 import { validateDate, validateFilters, validateScope, type FilterCondition, type Filters } from '../../server/bigquery/filters';
 import { utcDatePresets } from './presentation';
+import { privateScopeKeys } from './scopePresentation';
 
 const SCOPE_KEYS = ['startDate', 'endDate', 'filters', 'source', 'vendor', 'medium'] as const;
 const LEGACY_DIMENSIONS = ['source', 'vendor', 'medium'] as const;
@@ -14,6 +15,7 @@ export function defaultLegacyDates(now = new Date()) {
 export function readLegacyFilters(params: URLSearchParams): Filters {
   for (const key of SCOPE_KEYS) if (params.getAll(key).length > 1) throw new Error(`Repeated reporting parameter: ${key}`);
   const filters = validateFilters(params.get('filters') ?? undefined);
+  if (Object.keys(filters).some(key => privateScopeKeys.has(key))) throw new Error('Private record selections cannot be restored from a URL. Reset the scope and select the record within this session.');
   for (const key of LEGACY_DIMENSIONS) {
     const text = params.get(key);
     if (!text) continue;
@@ -40,6 +42,7 @@ export function readLegacyScope(params: URLSearchParams, now = new Date()): Lega
 }
 
 export function writeLegacyFilter(previous: URLSearchParams, key: string, condition: FilterCondition | null) {
+  if (privateScopeKeys.has(key)) throw new Error('Private record selections must remain in session memory.');
   const next = new URLSearchParams(previous);
   const filters = { ...readLegacyFilters(previous) };
   if (condition === null) delete filters[key]; else filters[key] = condition;

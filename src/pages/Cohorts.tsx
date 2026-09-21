@@ -7,6 +7,7 @@ import { TableSkeleton } from '../components/Skeleton';
 import PageHeader from '../components/PageHeader';
 import { useAnalyticsData } from '../lib/useAnalyticsData';
 import { useClient } from '../lib/ClientContext';
+import { DataState } from '../components/DataState';
 
 export default function Cohorts() {
   const [cohortType, setCohortType] = useState('weekly');
@@ -14,7 +15,9 @@ export default function Cohorts() {
   const { clientConfig } = useClient();
   const currencyPrefix = clientConfig?.currency === 'ZAR' ? 'R' : '$';
   
-  const { data: cohorts, loading } = useAnalyticsData('cohorts', { cohortType, metricType });
+  const { data: cohorts, loading, error, refetch } = useAnalyticsData('cohorts', { cohortType, metricType });
+
+  if (error) return <PageShell><PageHeader title="Lead Cohorts"/><DataState error={error} retry={refetch}/></PageShell>;
 
   if (loading) {
     return (
@@ -68,8 +71,9 @@ export default function Cohorts() {
         description="Benchmark end-to-end funnel maturation rates and complete lifecycle yields by capture cohort."
       >
         <div className="flex items-center gap-2 flex-wrap">
-          <label className="text-xs text-text-sec font-medium">Grain:</label>
+          <label htmlFor="cohort-grain" className="text-xs text-text-sec font-medium">Grain:</label>
           <select 
+            id="cohort-grain"
             value={cohortType} 
             onChange={(e) => setCohortType(e.target.value)}
             className="px-3 py-1.5 bg-white border border-border-strong rounded-lg text-xs text-text-main outline-none focus:border-brand font-medium shadow-xs"
@@ -78,8 +82,9 @@ export default function Cohorts() {
             <option value="weekly">Weekly</option>
             <option value="monthly">Monthly</option>
           </select>
-          <label className="text-xs text-text-sec font-medium ml-2">Metric:</label>
+          <label htmlFor="cohort-metric" className="text-xs text-text-sec font-medium ml-2">Metric:</label>
           <select 
+            id="cohort-metric"
             value={metricType} 
             onChange={(e) => setMetricType(e.target.value)}
             className="px-3 py-1.5 bg-white border border-border-strong rounded-lg text-xs text-text-main outline-none focus:border-brand font-medium shadow-xs"

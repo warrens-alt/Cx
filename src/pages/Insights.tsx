@@ -7,15 +7,17 @@ import { TableSkeleton } from '../components/Skeleton';
 import { useFilters } from '../lib/FilterContext';
 import { useAnalyticsData } from '../lib/useAnalyticsData';
 import { ArrowUpRight, ArrowDownRight, AlertTriangle, TrendingUp, ChevronRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { DataState } from '../components/DataState';
 
 export default function Insights() {
   const { startDate, endDate } = useFilters();
   const navigate = useNavigate();
+  const location = useLocation();
   const [selectedMetric, setSelectedMetric] = useState('activations');
   const [selectedDimension, setSelectedDimension] = useState('source');
   
-  const { data: insightsResponse, loading, error } = useAnalyticsData('insights', {
+  const { data: insightsResponse, loading, error, refetch } = useAnalyticsData('insights', {
     metric: selectedMetric,
     dimension: selectedDimension
   });
@@ -31,13 +33,13 @@ export default function Insights() {
       <PageHeader 
         title="Analytical Insights" 
         category="Automated Variance Decomposition"
-        description="Automated diagnostic analysis of key performance drivers and volume variances across matched baselines." 
+        description="Observed differences across matched periods. Source contributions describe changes, not their causes."
       />
 
       {loading ? (
         <TableSkeleton />
       ) : error ? (
-        <ErrorState message={error} />
+        <DataState error={error} retry={refetch}/>
       ) : rows.length === 0 ? (
         <EmptyState message="Not enough historical data to generate driver insights for the selected filter range." />
       ) : (
@@ -53,7 +55,7 @@ export default function Insights() {
                 </div>
                 <div className="text-[14px] text-text-sec leading-relaxed">
                   During the selected period, overall activations shifted by <strong className={`font-semibold ${totalChange > 0 ? 'text-semantic-pos' : 'text-semantic-neg'}`}>{totalChange > 0 ? '+' : ''}{totalChange}</strong>. 
-                  Below is the deterministic decomposition of which sources drove this movement compared to the preceding matched period.
+                  Below are the recorded source contributions to this movement compared to the preceding matched period. This does not establish causation.
                 </div>
               </div>
               <div className="mt-4 pt-3 border-t border-border-subtle text-xs text-text-mute">
@@ -71,7 +73,7 @@ export default function Insights() {
             {topLosers.length > 0 ? topLosers.map((loser, i) => (
               <div 
                 key={i} 
-                onClick={() => navigate('/explore')}
+                onClick={() => navigate({pathname:'/explore',search:location.search})}
                 className="p-3 border border-border-subtle rounded-lg bg-surface hover:bg-surface-sec cursor-pointer transition-colors flex items-center justify-between group"
               >
                 <div>
@@ -85,7 +87,7 @@ export default function Insights() {
                 <ChevronRight className="w-4 h-4 text-text-mute group-hover:text-teal transition-colors" />
               </div>
             )) : (
-              <div className="text-[13px] text-text-sec">No significant negative drivers identified.</div>
+              <div className="text-[13px] text-text-sec">No negative changes returned.</div>
             )}
           </div>
         </div>

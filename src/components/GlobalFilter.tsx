@@ -6,9 +6,10 @@ import { twMerge } from 'tailwind-merge';
 import { useClient } from '../lib/ClientContext';
 import { useFilters } from '../lib/FilterContext';
 import { utcDatePresets } from '../lib/presentation';
+import { filterDescription, filterLabel } from '../lib/scopePresentation';
 export function cn(...inputs: any[]) { return twMerge(clsx(inputs)); }
 export default function GlobalFilter(_props:{onOpenMobileMenu?:()=>void;onOpenCommandPalette?:()=>void}) {
-  const {selectedClient}=useClient(), {startDate,endDate,setDateRange,filters,setFilter,clearFilters}=useFilters();
+  const {selectedClient}=useClient(), {startDate,endDate,setDateRange,filters,setFilter,toggleFilterValue,clearFilters}=useFilters();
   const cache=useQueryClient(),[refreshing,setRefreshing]=useState(false),[refreshError,setRefreshError]=useState<string|null>(null);
   const options=useQuery({queryKey:['filter-options',selectedClient,startDate,endDate],queryFn:async({signal})=>{
     const response=await fetch('/api/analytics/filter-options?'+new URLSearchParams({clientId:selectedClient,startDate,endDate}),{signal,credentials:'same-origin'});
@@ -17,10 +18,12 @@ export default function GlobalFilter(_props:{onOpenMobileMenu?:()=>void;onOpenCo
   const opts=options.data||{},presets=utcDatePresets();
   const refresh=async()=>{setRefreshing(true);setRefreshError(null);try{await Promise.all([cache.invalidateQueries({queryKey:['analytics']},{throwOnError:true}),options.refetch({throwOnError:true})]);}catch{setRefreshError('Reload could not complete. Retry the affected report.');}finally{setRefreshing(false);}};
   const select=(key:string,label:string,values:any[])=>{
-    const selected=filters[key]?.operator==='in'?filters[key]?.values?.join(',')||'':'';
-    const choices=Array.isArray(values)?values.map(v=>String(v.value??v)):[];
-    return <label className="cx-field" key={key}><span>{label}</span><select value={selected} onChange={e=>setFilter(key,e.target.value?{operator:'in',values:[e.target.value]}:null)}>
-      <option value="">All</option>{selected&&!choices.includes(selected)&&<option value={selected}>{selected}</option>}{choices.map(v=><option key={v} value={v}>{v}</option>)}</select></label>;
+    const selected=filters[key]?.operator==='in'?(filters[key].values || []).map(String):[];
+    const choices=[...new Set([...selected,...(Array.isArray(values)?values.map(v=>String(v?.value??v)):[])])];
+    return <div className="cx-field" key={key}><span id={`scope-${key}`}>{label}</span><details className="cx-multiselect"><summary aria-labelledby={`scope-${key} scope-${key}-selection`}><span id={`scope-${key}-selection`}>{selected.length ? `${selected.length} selected` : 'All'}</span></summary>
+      <fieldset><legend className="sr-only">{label} selections</legend>{choices.map(value=><label key={value}><input type="checkbox" checked={selected.includes(value)} onChange={event=>toggleFilterValue(key,value,event.target.checked)}/><span>{value}</span></label>)}{!choices.length&&<p>No choices returned for this scope.</p>}</fieldset>
+      {!!selected.length&&<button type="button" className="cx-link-button" onClick={()=>setFilter(key,null)}>Clear {label.toLowerCase()}</button>}
+    </details></div>;
   };
   const booleanSelect=(key:string,label:string)=><label className="cx-field" key={key}><span>{label}</span><select id={`legacy-${key}`} value={filters[key]?.operator==='equals'?String(filters[key].value):''} onChange={e=>setFilter(key,e.target.value===''?null:{operator:'equals',value:e.target.value==='true'})}><option value="">All, including unknown</option><option value="true">Recorded yes</option><option value="false">Recorded no</option></select></label>;
   return <section className="cx-filter-panel" aria-label="Legacy report filters">
@@ -41,7 +44,7 @@ export default function GlobalFilter(_props:{onOpenMobileMenu?:()=>void;onOpenCo
         <option value="">All attempt counts</option><option value="0">0 recorded attempts</option><option value="1">1 recorded attempt</option><option value="2">2 recorded attempts</option><option value="3-5">3–5 recorded attempts</option><option value="6-10">6–10 recorded attempts</option>
       </select></label>
     </div></details>
-    {Object.keys(filters).length>0&&<div className="cx-filter-chips" aria-label="Applied filters">{Object.entries(filters).map(([key,value]:[string,any])=><button className="cx-filter-chip" key={key} onClick={()=>setFilter(key,null)} aria-label={`Remove ${key} filter`}><span>{key}: {value.values?.join(', ')??String(value.value??`${value.min}–${value.max}`)}</span><X size={13}/></button>)}</div>}
+    {Object.keys(filters).length>0&&<div className="cx-filter-chips" aria-label="Applied filters">{Object.entries(filters).map(([key,value])=><button className="cx-filter-chip" key={key} onClick={()=>setFilter(key,null)} aria-label={`Remove ${filterLabel(key)} filter`}><span>{filterLabel(key)}: {filterDescription(key,value)}</span><X size={13}/></button>)}</div>}
     <p className="cx-filter-note">Reloading may use the server cache; it does not refresh warehouse ingestion.</p>
     {(options.error||refreshError)&&<p role="alert" className="cx-inline-error">{refreshError||options.error?.message}</p>}
   </section>;

@@ -43,7 +43,7 @@ export function DistributionBar({
               dataKey={bucketKey}
               axisLine={false} 
               tickLine={false} 
-              tick={{ fontSize: 12, fill: '#64748b' }} 
+              tick={{ fontSize: 12, fill: '#64748b' }}
               dy={10}
             />
             <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} tickFormatter={(val) => formatChartAxis(val)}
@@ -58,7 +58,7 @@ export function DistributionBar({
               {data.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={color} />
               ))}
-              <LabelList dataKey={valueKey} position="top" formatter={formatter} style={{ fill: '#64748b', fontSize: 11, fontWeight: 600 }} />
+              <LabelList dataKey={valueKey} position="top" formatter={formatter} style={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>

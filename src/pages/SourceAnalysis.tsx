@@ -12,11 +12,12 @@ import { MetricCompositionDonut } from '../components/charts/MetricCompositionDo
 import KpiCard from '../components/KpiCard';
 import { useAnalyticsData } from '../lib/useAnalyticsData';
 import { Compass, Sparkles, TrendingUp, DollarSign } from 'lucide-react';
+import { DataState } from '../components/DataState';
 
 export default function SourceAnalysis() {
   const { clientConfig } = useClient();
   const currencyPrefix = clientConfig?.currency === 'ZAR' ? 'R ' : clientConfig?.currency === 'GBP' ? '£' : '$';
-  const { data: sourceData, loading } = useAnalyticsData('sources');
+  const { data: sourceData, loading, error, refetch } = useAnalyticsData('sources');
 
   // Keep hook order stable while the API moves between loading, data and empty states.
   const sortedByVolume = React.useMemo(() => [...(sourceData || [])].sort((a: any, b: any) => b.leads - a.leads), [sourceData]);
@@ -33,6 +34,7 @@ export default function SourceAnalysis() {
   const [viewMode, setViewMode] = React.useState<'full' | 'rates' | 'volume'>('full');
 
 
+  if (error) return <PageShell><PageHeader title="Lead Sources"/><DataState error={error} retry={refetch}/></PageShell>;
   if (loading) {
     return (
       <PageShell>
