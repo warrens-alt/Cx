@@ -1,7 +1,7 @@
 // Isolated production-client QA. All API responses are synthetic; no auth or warehouse is bypassed.
 // node tooling/browser/frontend-ux.mjs --mode baseline --dist /private/tmp/cx-frontend-baseline-1f8340d-dist/client
 // node tooling/browser/frontend-ux.mjs --mode after
-// Browser plugin not available: uses the repository's pinned Playwright installation.
+// Repository regression runner. Interactive inspection is performed with the Browser integration first.
 import { chromium, firefox, webkit } from 'playwright';
 import { createServer } from 'node:http';
 import fs from 'node:fs';
@@ -23,14 +23,25 @@ const dist = fs.mkdtempSync(path.join(output,'client-build-'));
 fs.cpSync(sourceDist,dist,{recursive:true});
 const widths = option('--widths', '320,360,390,768,1024,1440,1920').split(',').map(Number);
 const quick = process.argv.includes('--quick');
+const serveOnly = process.argv.includes('--serve-only');
 const checkOverviewAccessibility = process.argv.includes('--check-overview-accessibility');
 const repeat = Math.max(1, Math.min(10, Number(option('--repeat','1')) || 1));
 const cutoff = '2026-09-20T00:00:00.000Z';
-const core = option('--routes', '/reports,/explore,/vetting,/visuals').split(',');
-const routes = [...new Set([...core, '/overview', '/insights', '/routing', '/consumers', '/acquisition', '/lead-performance', '/speed-to-lead', '/call-performance', '/cohorts', '/outcomes', '/sources', '/quality', '/revetting', '/data-trust', '/data-quality', '/data-coverage', '/audit', '/explorer', '/admin', '/validation'])];
+const core = option('--routes', '/overview,/vendors,/explore,/vetting,/exceptions,/reconciliation,/reports,/visuals').split(',');
+const routes = [...new Set([...core, '/insights', '/routing', '/consumers', '/acquisition', '/lead-performance', '/speed-to-lead', '/call-performance', '/cohorts', '/outcomes', '/sources', '/quality', '/revetting', '/data-trust', '/data-quality', '/data-coverage', '/audit', '/explorer', '/admin', '/validation'])];
 const evidence = JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/reporting-reference.json'), 'utf8'));
 const reportGroups = Array.from({length: 1000}, (_, i) => ({metricId: 'call_attempts', group: `Synthetic group ${String(i + 1).padStart(4, '0')}`, value: '1', numerator: '1', denominator: null, unit: 'records', calculationStatus: 'CHECKED', completeness: 'COMPLETE', reason: null}));
-const mediaMetrics = [{id: 'source_rows', label: 'Media Source Rows', value: '100', status: 'MEASURED'}, {id: 'impressions', label: 'Reported Impressions', value: '12000', status: 'MEASURED'}, {id: 'clicks', label: 'Reported Clicks', value: '200', status: 'MEASURED'}];
+const mediaMetrics = [{id: 'source_rows', label: 'Media Source Rows', value: '100', status: 'MEASURED'}, {id: 'impressions', label: 'Reported Impressions', sourceField: 'impressions', value: '12000', status: 'MEASURED'}, {id: 'clicks', label: 'Reported Clicks', sourceField: 'clicks', value: '200', status: 'MEASURED'}, {id: 'platform_leads', label: 'Platform Lead Actions', sourceField: 'actions_lead', value: '37', status: 'MEASURED'}];
+const metricValues={fetched_leads:'450',delivered_episodes:'380',called_episodes:'300',call_attempts:'700',call_coverage:'78.947368',sale_events:'45',activation_events:'31',sale_activation_rate:'68.888889',expected_value:'100000.25',approved_value:'82000.25',invoiced_value:'73500.10',collected_value:'62000.01'};
+const unit=metricId=>metricId.endsWith('_value')?'currency':metricId.endsWith('_rate')||metricId==='call_coverage'?'percent':'records';
+const exactScale=(value,factor)=>{if(value===null)return null;const [whole,fraction='']=String(value).split('.');const scale=fraction.length;const coefficient=BigInt(whole+fraction);const multiplier=BigInt(Math.round(factor*1000));const result=coefficient*multiplier/1000n;const digits=(result<0n?-result:result).toString().padStart(scale+1,'0');return `${result<0n?'-':''}${scale?digits.slice(0,-scale)+'.'+digits.slice(-scale):digits}`;};
+function reportFixture(request){
+  const historical=request.startDate<'2026-08-01',factor=historical ? 0.82 : 1;
+  const groupNames=request.grouping==='vendor'?Array.from({length:14},(_,i)=>i===0?'Northstar Digital':i===1?'Orbit Leads':i===2?'Cape Connect':`Vendor ${String(i+1).padStart(2,'0')}`):request.grouping==='source'?['Paid Search','Organic','Affiliate','Referral','Direct']:request.grouping==='capture_month'?['2026-06','2026-07','2026-08']:[];
+  const metrics=request.metrics.map(metricId=>({metricId,group:null,value:exactScale(metricValues[metricId]??'0',factor),numerator:exactScale(metricValues[metricId]??'0',factor),denominator:metricId.endsWith('_rate')||metricId==='call_coverage'?'100':null,unit:unit(metricId),calculationStatus:'CHECKED',completeness:'COMPLETE',reason:null}));
+  const groups=groupNames.flatMap((group,index)=>request.metrics.map(metricId=>{const groupFactor=(groupNames.length-index)/(groupNames.length*2);return {metricId,group,value:exactScale(metricValues[metricId]??'0',factor*groupFactor),numerator:exactScale(metricValues[metricId]??'0',factor*groupFactor),denominator:metricId.endsWith('_rate')||metricId==='call_coverage'?'100':null,unit:unit(metricId),calculationStatus:'CHECKED',completeness:'COMPLETE',reason:null};}));
+  return {executionId:`fixture-${request.grouping}-${request.startDate}`,queryJobId:'fixture-job',engineHash:'fixture-engine',token:'test-only-token',request,releaseId:'rfixture',modelVersion:'cx.facts.2.0.0',metricVersion:'cx.metrics.2.0.1',releaseCutoff:cutoff,sourceBatchIds:['synthetic-batch'],metricDefinitions:[],generatedAt:cutoff,validation:[],sources:[],groups,totals:metrics};
+}
 
 function apiData(url, payload) {
   const endpoint = url.pathname.replace('/api/analytics/', '');
@@ -38,7 +49,11 @@ function apiData(url, payload) {
   if (endpoint === 'filter-options') return {vendors: ['Synthetic Vendor', 'Long synthetic vendor name for responsive quality assurance'], sources: ['Synthetic A', 'Synthetic B'], mediums: ['Paid'], grades: ['A'], vettings: ['Green']};
   if (endpoint === 'explore') return Array.from({length: 1000}, (_, i) => ({dim1: `Synthetic group ${String(i + 1).padStart(4, '0')}`, value: i === 0 ? '9007199254740993' : String(1000 - i), sampleSize: 1000 - i, fullFunnel: {leads: 1000 - i, called: 50, sales: 4, revenue: '0.01'}}));
   if (endpoint === 'vetting') return vettingFixture(url);
-  if (endpoint === 'acquisition') return {metrics: mediaMetrics, groups: ['Search', 'Organic', 'Partner'].map(group => ({group, metrics: mediaMetrics})), scope: {startDate:'2026-08-01',endDate:'2026-08-31'}, dateBasis:'Media reporting date', financialReason:'Actual spend is not verified.', validationStatus:'NOT_VERIFIED', table:'synthetic.media', warning:'Synthetic values only.'};
+  if (endpoint === 'acquisition') return {metrics: mediaMetrics, groups: [
+    {group:'Search', metrics: mediaMetrics.map(metric=>({...metric,value:{source_rows:'48',impressions:'7200',clicks:'132',platform_leads:'25'}[metric.id]}))},
+    {group:'Organic', metrics: mediaMetrics.map(metric=>({...metric,value:{source_rows:'34',impressions:'3400',clicks:'51',platform_leads:'9'}[metric.id]}))},
+    {group:'Partner', metrics: mediaMetrics.map(metric=>({...metric,value:{source_rows:'18',impressions:'1400',clicks:'17',platform_leads:'3'}[metric.id]}))}
+  ], scope: {startDate:'2026-08-01',endDate:'2026-08-31'}, dateBasis:'Media reporting date', timezone:'UTC', timezoneVerified:false, rowGrain:'physical_source_row', populationNote:'Only records with usable dates inside the selected period are included.', financialReason:'Actual spend is not verified.', validationStatus:'NOT_VERIFIED', table:'synthetic.media', warning:'Synthetic values only.'};
   if (endpoint === 'insights' || endpoint === 'drivers') return [{segment:'Synthetic A',current:10,previous:7,change:3,pctChange:42.8}];
   if (endpoint === 'source-coverage') return {inventoryComplete:true,sources:['leads','calls','timeToDial','activations','marketing'].map(role=>({role,label:role,table:'synthetic.'+role,status:'SCHEMA_PRESENT',rowCount:'100',api:'/api/analytics/source-metrics/'+role,legacyConsumers:[role]})),unmappedTables:[],metricLineage:{versioned:[]}};
   if (endpoint.startsWith('source-metrics/')) return {role:endpoint.split('/').at(-1),metrics:[{id:'source_rows',label:'Selected Source Rows',value:'100',status:'MEASURED',validRows:'100',missingRows:'0',invalidRows:'0'}],scope:{},dateBasis:'Source-specific date'};
@@ -46,11 +61,17 @@ function apiData(url, payload) {
   if (endpoint.startsWith('lead-timeline/')) return {lead:{id:'synthetic-lead-1'},events:[]};
   if (url.pathname === '/api/health') return {status:'fixture',bigquery:{connected:false},tables:{}};
   if (url.pathname === '/api/reporting/catalogue') return {available:true,release:{releaseId:'rfixture',cutoff,sourceBatchIds:['synthetic-batch'],sources:[],checks:[]}};
+  if (url.pathname === '/api/reporting/exceptions') return {available:true,releaseId:'rfixture',cutoff,reason:null,rules:[
+    {id:'identifier_mismatch',label:'Identifier relationship mismatch',description:'Canonical child facts whose approved parent key is absent.',population:'Frozen canonical facts',count:'0',vendor:null,severity:'critical',age:'At release cutoff',sourceEvidence:['leads','deliveries','calls'],status:'AVAILABLE',owner:null,reason:null,recordsPath:null,scopeBasis:'release_validation'},
+    {id:'reporting_coverage_degraded',label:'Reporting coverage degraded',description:'Published facts whose evidence is partial.',population:'Published source contracts',count:'1',vendor:null,severity:'high',age:'At release cutoff',sourceEvidence:['calls'],status:'AVAILABLE',owner:'Data Operations',reason:'Call evidence is partial.',recordsPath:null,scopeBasis:'release_validation'},
+    {id:'delivered_not_dialled_sla',label:'Delivered but not dialled beyond SLA',description:'Delivered episodes without a subsequent observed call after the approved threshold.',population:'Successful delivery episodes',count:null,vendor:null,severity:'high',age:null,sourceEvidence:['deliveries','calls'],status:'CONFIGURATION_REQUIRED',owner:null,reason:'Configure an approved delivery-to-first-dial SLA and operating-hours calendar.',recordsPath:null,scopeBasis:'selected_period'},
+    {id:'missing_disposition',label:'Missing call disposition',description:'Observed calls without an approved canonical disposition.',population:'Observed call events',count:null,vendor:null,severity:'medium',age:null,sourceEvidence:['calls'],status:'SOURCE_UNAVAILABLE',owner:null,reason:'The canonical call fact does not include a disposition mapping.',recordsPath:null,scopeBasis:'selected_period'}]};
   if (url.pathname === '/api/reporting/reports') {
     const request = payload.request;
-    return {executionId:'fixture-ux',token:'test-only-token',request,releaseId:'rfixture',modelVersion:'cx.facts.2.0.0',metricVersion:'cx.metrics.2.0.1',releaseCutoff:cutoff,sourceBatchIds:['synthetic-batch'],generatedAt:cutoff,validation:[],sources:[],groups:reportGroups.filter(row=>request.metrics.includes(row.metricId)), totals:request.metrics.map(metricId=>({metricId,group:null,value:metricId==='call_attempts'?'1000':evidence.expected.all[metricId],numerator:metricId==='call_attempts'?'1000':evidence.expected.all[metricId],denominator:null,unit:metricId.endsWith('_value')?'currency':metricId.endsWith('_rate')||metricId==='call_coverage'?'percent':'records',calculationStatus:'CHECKED',completeness:'COMPLETE',reason:null}))};
+    if(request.grouping==='source'||request.grouping==='vendor'||request.grouping==='none'||request.grouping==='capture_month')return reportFixture(request);
+    return {...reportFixture(request),groups:reportGroups.filter(row=>request.metrics.includes(row.metricId))};
   }
-  if (url.pathname === '/api/reporting/evidence') return {executionId:'fixture-ux',metricId:payload.metricId,rows:evidence.calls,rowCount:evidence.calls.length,truncated:false};
+  if (url.pathname === '/api/reporting/evidence') return {executionId:'fixture-vendor-2026-08-01',metricId:payload.metricId,rows:evidence.calls.map((row,index)=>({...row,commercial_stage:payload.metricId.replace('_value',''),currency:'ZAR',agreement_version:index%2?'agreement-v1':'agreement-v2'})),rowCount:evidence.calls.length,truncated:false};
   if (fixtures[endpoint]) return fixtures[endpoint];
   return {};
 }
@@ -58,7 +79,15 @@ function apiData(url, payload) {
 fs.mkdirSync(output, {recursive:true});
 const mime={'.js':'text/javascript','.css':'text/css','.html':'text/html','.svg':'image/svg+xml','.png':'image/png','.ico':'image/x-icon'};
 const server=createServer((request,response)=>{
-  const pathname=decodeURIComponent(new URL(request.url,'http://localhost').pathname);
+  const requestUrl=new URL(request.url,'http://localhost'),pathname=decodeURIComponent(requestUrl.pathname);
+  if(pathname.startsWith('/api/')){
+    const chunks=[];request.on('data',chunk=>chunks.push(chunk));request.on('end',()=>{
+      let payload={};try{payload=chunks.length?JSON.parse(Buffer.concat(chunks).toString('utf8')):{};}catch{}
+      const data=apiData(requestUrl,payload);
+      response.writeHead(200,{'content-type':'application/json','cache-control':'no-store','x-request-id':'00000000-0000-4000-8000-000000000001'});
+      response.end(JSON.stringify({success:true,data,metadata:{clientId:'default_tenant',currency:'ZAR',validationStatus:'NOT_VERIFIED'}}));
+    });return;
+  }
   let file=path.resolve(dist,'.'+pathname);
   if(!file.startsWith(dist+path.sep)||!fs.existsSync(file)||fs.statSync(file).isDirectory())file=path.join(dist,'index.html');
   response.writeHead(200,{'content-type':mime[path.extname(file)]||'application/octet-stream','cache-control':'no-store'});
@@ -66,6 +95,11 @@ const server=createServer((request,response)=>{
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const base=`http://127.0.0.1:${server.address().port}`;
+if(serveOnly){
+  console.log(`PREVIEW_URL=${base}`);
+  await new Promise(resolve=>{process.once('SIGINT',resolve);process.once('SIGTERM',resolve);});
+  server.close();process.exit(0);
+}
 const results=[], failures=[];
 let browser;
 const check=(value,message,record)=>{record.checks.push({message,passed:!!value});if(!value)failures.push({route:record.route,width:record.width,message});};
@@ -105,6 +139,9 @@ async function inspectRoute(route,width,{failure=false,textZoom=false,repetition
     else if(!failure&&route==='/explore')await page.getByRole('img',{name:'bar: Fetched Leads',exact:true}).waitFor();
     else if(!failure&&route==='/vetting')await page.getByText('Included leads: 8',{exact:true}).waitFor();
     else if(!failure&&route==='/visuals')await page.locator('[data-visual-surface="api.response"]').waitFor({state:'attached'});
+    else if(!failure&&route==='/vendors')await page.getByRole('table',{name:'Vendor performance evidence',exact:true}).waitFor();
+    else if(!failure&&route==='/exceptions')await page.getByRole('table',{name:'Operational exception rules',exact:true}).waitFor();
+    else if(!failure&&route==='/reconciliation')await page.getByRole('table',{name:'Commercial reconciliation by vendor',exact:true}).waitFor();
     await page.waitForTimeout(250);
     if(textZoom){
       await page.evaluate(()=>{
@@ -182,6 +219,30 @@ async function inspectRoute(route,width,{failure=false,textZoom=false,repetition
       record.breakdownRows=await page.getByRole('table',{name:'Report breakdown rows',exact:true}).locator('tbody tr').count();
       check(record.breakdownRows===25,'1000 report groups have bounded 25-row DOM',record);
     }
+    if(!failure&&!textZoom&&route==='/vendors'&&[390,1440].includes(width)){
+      const before=requests.filter(path=>path==='/api/reporting/reports').length;
+      await page.getByPlaceholder('Search vendors',{exact:true}).fill('Northstar');
+      const table=page.getByRole('table',{name:'Vendor performance evidence',exact:true});await table.getByRole('rowheader',{name:'Northstar Digital',exact:true}).waitFor();
+      check(await table.locator('tbody tr').count()===1,'Vendor search bounds the local table',record);
+      await page.getByLabel('Vendor chart controls').getByLabel('Measure').selectOption('collected_value');
+      check(requests.filter(path=>path==='/api/reporting/reports').length===before,'Vendor presentation controls issue no warehouse request',record);
+      await table.locator('tbody td button').first().click();await page.getByRole('complementary',{name:/Evidence for/}).waitFor();
+      const evidenceExport=page.getByRole('button',{name:/Export all 5 scoped records/});await evidenceExport.waitFor();
+      check(await evidenceExport.count()===1,'Vendor evidence inspector exposes complete scoped export',record);
+      await page.screenshot({path:path.join(output,`vendors-evidence-${width}.png`)});
+    }
+    if(!failure&&!textZoom&&route==='/exceptions'&&[390,1440].includes(width)){
+      await page.getByRole('tab',{name:/Needs configuration/}).click();
+      await page.getByRole('button',{name:'Delivered but not dialled beyond SLA',exact:true}).click();
+      check(await page.getByText(/Configure an approved delivery-to-first-dial SLA/).count()>0,'Exception rule explains missing configuration',record);
+      await page.screenshot({path:path.join(output,`exceptions-config-${width}.png`)});
+    }
+    if(!failure&&!textZoom&&route==='/reconciliation'&&[390,1440].includes(width)){
+      await page.getByRole('button',{name:/Collected Amount/}).first().click();
+      await page.getByRole('complementary',{name:/Evidence for Collected Amount/}).waitFor();
+      check(await page.getByText(/agreement version/i).count()>0,'Commercial evidence exposes agreement version',record);
+      await page.screenshot({path:path.join(output,`reconciliation-evidence-${width}.png`)});
+    }
     if(!failure&&!textZoom&&route==='/visuals'&&[390,1440].includes(width)){
       const visualSurface=page.locator('[data-visual-surface="api.response"]');
       await visualSurface.scrollIntoViewIfNeeded();
@@ -206,7 +267,7 @@ try{
   if(!quick){for(const width of [390,1440])for(const route of routes.filter(r=>!core.includes(r)))await inspectRoute(route,width);for(const route of routes)await inspectRoute(route,390,{failure:true});for(const route of core)await inspectRoute(route,1440,{textZoom:true});}
 }finally{
   if(browser)await browser.close();server.close();
-  const summary={mode,engine,browserVersion:browser?.version(),sourceCommit,sourceDist,dist,output,conditions:{fixtures:'Synthetic fixed August 2026 scope. 1000 Explore/report groups; 8 vetting records; pinned shared visual fixtures.',cache:'Fresh browser context per route; static server Cache-Control: no-store',network:'Local loopback, no throttling',motion:'prefers-reduced-motion: reduce',meaning:'Laboratory render/interaction observations, not field Core Web Vitals or production INP',browserFallback:'Browser plugin not available'},results,failures};
+  const summary={mode,engine,browserVersion:browser?.version(),sourceCommit,sourceDist,dist,output,conditions:{fixtures:'Synthetic fixed August 2026 scope. 1000 Explore/report groups; 8 vetting records; approved vendor, exception and commercial fixtures.',cache:'Fresh browser context per route; static server Cache-Control: no-store',network:'Local loopback, no throttling',motion:'prefers-reduced-motion: reduce',meaning:'Laboratory render/interaction observations, not field Core Web Vitals or production INP',runner:'Repository Playwright regression after interactive Browser integration inspection'},results,failures};
   fs.writeFileSync(path.join(output,'results.json'),JSON.stringify(summary,null,2));
   console.log(JSON.stringify({mode,engine,pages:results.length,assertions:results.reduce((n,r)=>n+r.checks.length,0),failures,output},null,2));
 }

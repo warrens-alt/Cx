@@ -28,14 +28,15 @@ try{
       let data={};
       if(url.pathname==='/api/analytics/clients')data=[{id:'default_tenant',name:'Fixture tenant',currency:'ZAR',timezone:'UTC',capabilities:{}}];
       else if(url.pathname==='/api/reporting/catalogue')data={available:!noRelease,reason:noRelease?'No approved release has been published.':null,release:noRelease?null:{releaseId:'rfixture',cutoff,sourceBatchIds:['synthetic-batch'],sources:[],checks:[]}};
-      else if(url.pathname==='/api/analytics/calls')data={calledLeads:8,totalCalls:12,avgCalls:1.5,oneCallLeads:4,oneCallRate:50,repeatCallLeads:4,repeatCallRate:50,totalDurationHours:1.25,
-        chart:[{bucket:'1 Call',current:4,rpc:50,sale:25,activation:25,revPerLead:25,totalRevenue:100}],
-        hourly:[{label:'09:00',volume:8,rpcRate:50,saleRate:25,revenue:100}],dayOfWeek:[{day:'Monday',volume:8,rpcRate:50,saleRate:25,revenue:100}],
-        vendors:[{vendor:'Synthetic Vendor',totalLeads:8,calledLeads:10,avgCallsPerLead:1.2,oneCallRate:50,rpcRate:50,saleRate:20,revPerLead:10}],
-        dispositions:[{disposition:'Synthetic Sale',volume:2,share:100,rpcRate:100,saleRate:100,revenue:100}]};
+      else if(url.pathname==='/api/analytics/calls')data={calledLeads:'8',totalCalls:'12',avgCalls:'1.5',oneCallLeads:'4',oneCallRate:'50',repeatCallLeads:'4',repeatCallRate:'50',totalDurationHours:'1.25',precision:'exact decimal strings',rpcDefinition:'Observed dialler RPC evidence only.',
+        sections:{summary:{status:'AVAILABLE',reason:null},callAttemptBands:{status:'AVAILABLE',reason:null},firstDialHour:{status:'AVAILABLE',reason:null},firstDialWeekday:{status:'AVAILABLE',reason:null},vendors:{status:'AVAILABLE',reason:null},dispositions:{status:'AVAILABLE',reason:null}},
+        chart:[{bucket:'1 Call',current:'4',rpc:'50',sale:'25',activation:'25',revPerLead:'25',totalRevenue:'100'}],
+        hourly:[{label:'09:00',volume:'8',rpcRate:'50',saleRate:'25',revenue:'100'}],dayOfWeek:[{day:'Monday',volume:'8',rpcRate:'50',saleRate:'25',revenue:'100'}],
+        vendors:[{vendor:'Synthetic Vendor',totalLeads:'8',calledLeads:'10',avgCallsPerLead:'1.2',oneCallRate:'50',rpcRate:'50',saleRate:'20',revPerLead:'10'}],
+        dispositions:[{disposition:'Synthetic Sale',volume:'2',share:'100',rpcRate:'100',saleRate:'100',revenue:'100'}]};
       else if(url.pathname==='/api/analytics/speed-to-lead')data={metrics:[{id:'capture_to_delivery',name:'Capture to Delivery',avg:'8m'},{id:'delivery_to_first_dial',name:'Delivery to First Call',avg:'20m'}],
         buckets:['< 5m','5-15m','15-60m','> 1h'].map((bucket,i)=>({bucket,leads:4+i,rpcCount:2,rpc:50,saleCount:1,sale:25,billableCount:1,billableRate:100,actCount:1,activation:100,revenue:100,revPerLead:25}))};
-      else if(url.pathname==='/api/analytics/explore')data=[{dim1:'Synthetic Source',value:12.5,sampleSize:8,fullFunnel:{}}];
+      else if(url.pathname==='/api/analytics/explore')data=[{dim1:'Synthetic Source',value:'12.5',sampleSize:'8',fullFunnel:{}}];
       else if(url.pathname==='/api/reporting/reports'){
         if(slow)await new Promise(r=>setTimeout(r,400));
         const req=payload.request,values=req.filters.source?.[0]==='Organic'?fixture.expected.organic:req.filters.vendor?.[0]==='Vendor A'?fixture.expected.vendorA:req.filters.vendor?.[0]==='Vendor B'?fixture.expected.vendorB:fixture.expected.all;
@@ -125,7 +126,7 @@ try{
     await page.getByRole('button',{name:'First-Dial Timing',exact:true}).click();
     await page.getByRole('columnheader',{name:/^First-Dial Weekday$/i}).waitFor();checks++;
     await page.getByRole('button',{name:'Vendor & Disposition Records',exact:true}).click();
-    await page.getByRole('columnheader',{name:/^Dialled Transaction Rows$/i}).waitFor();checks++;
+    await page.getByRole('columnheader',{name:/^Dialled Rows$/i}).waitFor();checks++;
     await page.getByLabel('Find Vendor',{exact:true}).fill('Synthetic Vendor');
     assert.equal(await page.getByRole('cell',{name:'Synthetic Vendor',exact:true}).count(),1);checks++;
     await page.screenshot({path:`verification/naming-calls-${viewport.width}.png`,fullPage:true});

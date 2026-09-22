@@ -30,13 +30,13 @@ export async function verifySourceApis(browser,base){let checks=0;
       }
       await page.screenshot({path:`verification/source-coverage-${viewport.width}.png`,fullPage:true});
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));checks++;
-      await page.goto(base+'/acquisition');await page.getByRole('table',{name:'Media channel metrics'}).waitFor();
-      assert.equal(await page.getByText('12,000',{exact:true}).count(),2);checks++;
-      assert.equal(await page.getByText('Financial metrics remain unavailable.',{exact:true}).count(),1);checks++;
+      await page.goto(base+'/acquisition');await page.getByRole('table',{name:'Media channel performance'}).waitFor();
+      assert.equal(await page.getByText('12,000',{exact:true}).count(),3);checks++;
+      assert.equal(await page.getByRole('heading',{name:'Spend-based metrics unavailable',exact:true}).count(),1);checks++;
       await page.screenshot({path:`verification/media-api-${viewport.width}.png`,fullPage:true});
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));checks++;
       missing=true;await page.reload();await page.getByRole('alert').getByText('Source access is unavailable; no figures were substituted.',{exact:false}).waitFor();
-      assert.equal(await page.getByRole('table',{name:'Media channel metrics'}).count(),0);checks++;
+      assert.equal(await page.getByRole('table',{name:'Media channel performance'}).count(),0);checks++;
       assert.deepEqual(errors,[]);checks++;
     }catch(e){await page.screenshot({path:`verification/source-api-failure-${viewport.width}.png`,fullPage:true});fs.writeFileSync(`verification/source-api-failure-${viewport.width}.json`,JSON.stringify({error:String(e),stack:e.stack,body:await page.locator('body').innerText()},null,2));throw e;}finally{await page.close();}
   }return checks;

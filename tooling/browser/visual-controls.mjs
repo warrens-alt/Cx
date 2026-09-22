@@ -10,7 +10,7 @@ const sources=[{source:'Synthetic A',...stats},{source:'Synthetic B',...stats}];
 const sourceRoles=['leads','calls','timeToDial','activations','marketing'];
 export const fixtures={
   overview:{...stats,trend,sources,attentionItems:[]},timeseries:trend,funnel:[{stage:'Fetched Leads',count:50,rate:100},{stage:'Dialled Leads',count:30,rate:60}],
-  calls:{calledLeads:30,totalCalls:50,avgCalls:1.66,oneCallRate:50,repeatCallRate:50,totalDurationHours:1,chart:[{bucket:'1 Call',current:10,rpc:50,sale:10,activation:5,revPerLead:10,totalRevenue:100}],hourly:[{label:'09:00',volume:30,rpcRate:60,saleRate:20,revenue:300}],dayOfWeek:[{day:'Monday',volume:30,rpcRate:60,saleRate:20,revenue:300}],vendors:[{vendor:'Synthetic Vendor',...stats}],dispositions:[{disposition:'Synthetic RPC',volume:30,rpcRate:60,saleRate:20,share:100,revenue:300}]},
+  calls:{calledLeads:'30',deliveredLeads:'40',totalCalls:'50',avgCalls:'1.7',oneCallLeads:'15',oneCallRate:'50.0',repeatCallLeads:'15',repeatCallRate:'50.0',totalDurationHours:'1.0',precision:'exact_decimal_strings',rpcDefinition:'Observed dialler RPC evidence only. Sales and legacy HLC RPC flags do not create observed RPC.',sections:Object.fromEntries(['summary','callAttemptBands','firstDialHour','firstDialWeekday','vendors','dispositions'].map(key=>[key,{status:'AVAILABLE',reason:null}])),chart:[{bucket:'1 Call',current:'10',rpc:'50.0',sale:'10.0',activation:'5.0',revPerLead:'10.00',totalRevenue:'100'}],hourly:[{label:'09:00',volume:'30',rpcRate:'60.0',saleRate:'20.0',revenue:'300'}],dayOfWeek:[{day:'Monday',volume:'30',rpcRate:'60.0',saleRate:'20.0',revenue:'300'}],vendors:[{vendor:'Synthetic Vendor',totalLeads:'50',calledLeads:'30',avgCallsPerLead:'1.7',oneCallRate:'50.0',rpcRate:'60.0',saleRate:'20.0',revPerLead:'10.00'}],dispositions:[{disposition:'Synthetic RPC',volume:'30',rpcRate:'60.0',saleRate:'20.0',share:'100.0',revenue:'300'}]},
   'speed-to-lead':{metrics:[{id:'capture_to_delivery',avg:'8m'},{id:'delivery_to_first_dial',avg:'20m'}],buckets:[{bucket:'0–5',leads:30,rpcCount:20,rpc:66.6,saleCount:10,sale:33.3,billableCount:8,billableRate:80,actCount:6,activation:60,revenue:900,revPerLead:30}]},
   cohorts:[{cohort:'2026-08',size:50,...stats,metrics:{d0:'1',d1:'3',d3:'5',d7:'10',d14:null,d30:null}}],sources,
   quality:{vetting:[],stats:{validRate:80,duplicateRate:20,deliveryRate:80,revenuePerLead:18},grades:[{grade:'Pass',count:40}],reasons:[{reason:'Recorded Pass',count:40,percentage:80}],fullFunnelSummary:stats,fullFunnelByGrade:[{grade:'A',...stats}]},
@@ -41,7 +41,8 @@ export async function verifyVisualControls(browser,base){let checks=0;const visi
       await route.fulfill({status,contentType:'application/json',body:JSON.stringify(status===200?{success:true,data,metadata:{validationStatus:'NOT_VERIFIED'}}:{success:false,error:'Source unavailable; no chart values substituted.'})});
     });
     try{
-      await page.goto(base+'/acquisition');const surface=page.locator('[data-visual-surface="media.groups"]');await surface.scrollIntoViewIfNeeded();
+      await page.goto(base+'/acquisition');const mediaBlock=page.locator('[data-visual-table="media.groups"]');await mediaBlock.getByRole('button',{name:'Chart + table',exact:true}).click();
+      const surface=page.locator('[data-visual-surface="media.groups"]');await surface.scrollIntoViewIfNeeded();
       await surface.getByLabel('Dataset to visualise',{exact:true}).selectOption('media.groups:impressions');checks++;
       const chart=surface.getByTestId('visual-view');await chart.getByLabel('Chart type',{exact:true}).waitFor();
       assert.match(await chart.innerText(),/missing or invalid values remain gaps/);checks++;
@@ -60,9 +61,9 @@ export async function verifyVisualControls(browser,base){let checks=0;const visi
       await chart.getByLabel('Plot mode',{exact:true}).selectOption('records');await chart.getByLabel('Chart type',{exact:true}).selectOption('donut');
       await chart.getByRole('img',{name:/donut chart/}).waitFor();assert.match(await chart.innerText(),/Counts describe returned records/);checks++;
       assert.equal(apiCalls,countBefore,'local visual controls do not query another population');checks++;
-      const block=page.locator('[data-visual-table="media.groups"]');await block.getByRole('button',{name:'Table only',exact:true}).click();await block.locator('[data-testid="visual-view"]').waitFor({state:'detached'});assert.equal(await block.locator('[data-testid="visual-view"]').count(),0);checks++;
-      await block.getByRole('button',{name:'Chart only',exact:true}).click();await block.locator('.cx-original-table').waitFor({state:'hidden'});assert.equal(await block.getByRole('table',{name:'Media channel metrics'}).count(),0);checks++;
-      await block.getByRole('button',{name:'Chart + table',exact:true}).click();await block.getByRole('table',{name:'Media channel metrics'}).waitFor();checks++;
+      await mediaBlock.getByRole('button',{name:'Table only',exact:true}).click();await mediaBlock.locator('[data-testid="visual-view"]').waitFor({state:'detached'});assert.equal(await mediaBlock.locator('[data-testid="visual-view"]').count(),0);checks++;
+      await mediaBlock.getByRole('button',{name:'Chart only',exact:true}).click();await mediaBlock.locator('.cx-original-table').waitFor({state:'hidden'});assert.equal(await mediaBlock.getByRole('table',{name:'Media channel performance'}).count(),0);checks++;
+      await mediaBlock.getByRole('button',{name:'Chart + table',exact:true}).click();await mediaBlock.getByRole('table',{name:'Media channel performance'}).waitFor();checks++;
       missing=true;await page.reload();await page.getByRole('alert').getByText(/Source unavailable/).waitFor();assert.equal(await page.getByTestId('visual-view').count(),0);checks++;
       missing=false;
       await page.goto(base+'/visuals');await page.getByLabel('Visual report source',{exact:true}).waitFor();const hub=page.locator('[data-visual-surface="api.response"]');await hub.scrollIntoViewIfNeeded();
