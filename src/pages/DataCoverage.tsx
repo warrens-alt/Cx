@@ -7,20 +7,26 @@ import { useAnalyticsData } from '../lib/useAnalyticsData';
 import { useClient } from '../lib/ClientContext';
 import { useFilters } from '../lib/FilterContext';
 import { exactNumber } from '../../contracts/format';
+import { analyticsUrl, fetchAnalyticsJson } from '../lib/analyticsRequest';
+import { validateSourceMetricResponse, type SourceMetricResponse } from '../lib/sourceMetricResponse';
 export default function DataCoverage(){
   const {data,loading,error,refetch}=useAnalyticsData<any>('source-coverage');
-  const {selectedClient}=useClient(),{startDate,endDate}=useFilters();
-  const [role,setRole]=useState('leads'),[result,setResult]=useState<any>(null),[failure,setFailure]=useState<string|null>(null),[checking,setChecking]=useState(false);
+  const {selectedClient,ready,reportAuthenticationFailure}=useClient(),{startDate,endDate,filterError}=useFilters();
+  const [role,setRole]=useState('leads'),[result,setResult]=useState<SourceMetricResponse|null>(null),[failure,setFailure]=useState<string|null>(null),[checking,setChecking]=useState(false);
   const [controller,setController]=useState<AbortController|null>(null);
   useEffect(()=>{controller?.abort();setResult(null);setFailure(null);setChecking(false);},[role,selectedClient,startDate,endDate]);
   useEffect(()=>()=>controller?.abort(),[controller]);
   async function check(){
+    if(!ready||filterError)return;
     controller?.abort();const request=new AbortController();setController(request);setChecking(true);setFailure(null);setResult(null);
-    try{const q=new URLSearchParams({clientId:selectedClient,startDate,endDate});
-      const response=await fetch(`/api/analytics/source-metrics/${role}?${q}`,{signal:request.signal,credentials:'same-origin'}),body=await response.json();
-      if(!response.ok||!body.success)throw new Error(body.error||'Source metrics could not be read');
-      if(!request.signal.aborted)setResult(body.data);
-    }catch(e){if(!request.signal.aborted)setFailure(e instanceof Error?e.message:'Source query failed');}finally{if(!request.signal.aborted)setChecking(false);}
+    try{const scope={clientId:selectedClient,startDate,endDate,filters:{}};
+      const body=await fetchAnalyticsJson(analyticsUrl(`source-metrics/${role}`,scope),request.signal);
+      const next=validateSourceMetricResponse(body.data,{...scope,role});
+      if(!request.signal.aborted)setResult(next);
+    }catch(e){if(!request.signal.aborted){
+      if((e as {status?:number}).status===401)reportAuthenticationFailure((e as Error).message);
+      else setFailure(e instanceof Error?e.message:'Source query failed');
+    }}finally{if(!request.signal.aborted)setChecking(false);}
   }
   const visibleResult=result?.role===role&&result?.scope?.clientId===selectedClient&&result?.scope?.startDate===startDate&&result?.scope?.endDate===endDate?result:null;
   return <PageShell><PageHeader title="Source Field Mappings" description="Live source metadata, metric dependencies and API query evidence. Schema presence is not proof of data completeness."/>

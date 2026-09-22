@@ -3,6 +3,7 @@ import { RequestError } from '../bigquery/filters';
 import { validateRelease } from './release';
 import type { QueryExecutionEvidence, ReleaseManifest } from '../../contracts/reporting';
 import type { CompiledQuery } from './query';
+import { readOnlyQueryOptions } from '../bigquery/readOnly';
 export interface ReportRepository {
   configured: boolean;
   release(tenant: string, releaseId?: string): Promise<ReleaseManifest | null>;
@@ -13,16 +14,19 @@ export interface ReportRepository {
 export class BigQueryReportRepository implements ReportRepository {
   readonly configured: boolean;
   private readonly dataset: string;
-  private readonly bq: BigQuery;
+  private readonly bq: Pick<BigQuery, 'createQueryJob' | 'dataset'>;
   private readonly budget: string;
-  constructor() {
+  constructor(client?: Pick<BigQuery, 'createQueryJob' | 'dataset'>) {
     this.dataset = process.env.CX_REPORTING_DATASET || '';
     if (this.dataset && !/^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_]+$/.test(this.dataset)) throw new Error('Invalid CX_REPORTING_DATASET');
     this.configured = !!this.dataset;
     this.budget = process.env.BIGQUERY_MAX_BYTES_BILLED || '1000000000';
     if (!/^\d+$/.test(this.budget) || BigInt(this.budget) <= 0n) throw new Error('Invalid query budget');
-    const credentials = process.env.BIGQUERY_CREDENTIALS ? JSON.parse(process.env.BIGQUERY_CREDENTIALS) : undefined;
-    this.bq = new BigQuery({ projectId: this.dataset.split('.')[0] || undefined, credentials });
+    if (client) this.bq = client;
+    else {
+      const credentials = process.env.BIGQUERY_CREDENTIALS ? JSON.parse(process.env.BIGQUERY_CREDENTIALS) : undefined;
+      this.bq = new BigQuery({ projectId: this.dataset.split('.')[0] || undefined, credentials });
+    }
   }
   async release(tenant: string, releaseId?: string) {
     if (!this.configured) return null;
@@ -31,7 +35,12 @@ export class BigQueryReportRepository implements ReportRepository {
     if (!result.rows.length) return null;
     if (releaseId && result.rows.length !== 1) throw new RequestError('Duplicate reporting release IDs', 503);
     if (result.rows[0].status !== 'PUBLISHED') throw new RequestError('Reporting release was revoked', 410);
-    const release = validateRelease(JSON.parse(result.rows[0].manifest));
+    let manifest: unknown;
+    try {
+      if (typeof result.rows[0].manifest !== 'string') throw new Error('Missing manifest');
+      manifest = JSON.parse(result.rows[0].manifest);
+    } catch { throw new RequestError('Published reporting release contains invalid manifest JSON', 503); }
+    const release = validateRelease(manifest);
     if (release.tenantId !== tenant || (releaseId && release.releaseId !== releaseId)) throw new RequestError('Release identity mismatch', 503);
     return release;
   }
@@ -42,12 +51,14 @@ export class BigQueryReportRepository implements ReportRepository {
       if (`${project}.${dataset}` !== this.dataset) throw new RequestError('Snapshot is outside the approved reporting dataset', 503);
       const [meta] = await this.bq.dataset(dataset, { projectId: project }).table(id).getMetadata();
       const snapshotTime = meta.snapshotDefinition?.snapshotTime;
-      if (meta.type !== 'SNAPSHOT' || !snapshotTime || new Date(Number(meta.creationTime)).toISOString() !== new Date(s.createdAt).toISOString() || new Date(snapshotTime).toISOString() !== new Date(s.snapshotTime).toISOString()) throw new RequestError('Snapshot was replaced, is missing, or is not read-only', 409);
+      const createdAt = typeof meta.creationTime === 'string' && /^\d+$/.test(meta.creationTime) ? Number(meta.creationTime) : NaN;
+      const frozenAt = typeof snapshotTime === 'string' ? Date.parse(snapshotTime) : NaN;
+      if (meta.type !== 'SNAPSHOT' || !Number.isFinite(createdAt) || !Number.isFinite(frozenAt) || createdAt !== Date.parse(s.createdAt) || frozenAt !== Date.parse(s.snapshotTime)) throw new RequestError('Snapshot was replaced, is missing, or is not read-only', 409);
     }));
   }
   async query(compiled: CompiledQuery) {
     const started = Date.now();
-    const [job] = await this.bq.createQueryJob({ ...compiled, useLegacySql: false, maximumBytesBilled: this.budget, jobTimeoutMs: 60000 });
+    const [job] = await this.bq.createQueryJob(readOnlyQueryOptions(compiled, this.budget));
     const [rows] = await job.getQueryResults();
     const [metadata] = await job.getMetadata();
     const statistics = metadata.statistics?.query;

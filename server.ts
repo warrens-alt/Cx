@@ -6,7 +6,8 @@ import { createReportingRouter } from './server/reporting/router';
 import { pathToFileURL } from 'node:url';
 import { analyticsRouter } from './server/api';
 import { authenticate } from './server/security';
-import { RequestError, boundedInteger } from './server/bigquery/filters';
+import { boundedInteger } from './server/bigquery/filters';
+import { apiErrorHandler } from './server/apiErrors';
 import { analyticalConcurrency, apiAuditLog, requestContext, sameOriginRequests, securityHeaders } from './server/httpGuards';
 
 export async function createApp() {
@@ -39,12 +40,7 @@ export async function createApp() {
     const vite = await createServer({ server: { middlewareMode: true }, appType: 'spa' });
     app.use(vite.middlewares);
   }
-  app.use((error: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    if (res.headersSent) return res.end();
-    const status = error instanceof RequestError ? error.status : (error?.type === 'entity.too.large' ? 413 : error?.type === 'entity.parse.failed' ? 400 : 500);
-    if (status >= 500) console.error(JSON.stringify({ action: 'REQUEST_FAILED', requestId: res.locals.requestId, method: req.method, status, error: error?.name || 'Error' }));
-    res.status(status).json({ success: false, error: error instanceof RequestError ? error.message : status === 400 ? 'Invalid JSON request body' : status === 413 ? 'Request body is too large' : 'The request failed. Check the server logs or retry.', requestId: res.locals.requestId });
-  });
+  app.use(apiErrorHandler);
   return app;
 }
 const port = boundedInteger(process.env.PORT, 3000, 65535, 1);

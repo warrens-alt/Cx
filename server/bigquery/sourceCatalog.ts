@@ -2,7 +2,7 @@ import { SOURCE_ROLES,SOURCE_DEFINITIONS,SOURCE_COVERAGE_VERSION,type SourceRole
 import { METRICS as V2_METRICS } from '../../contracts/reporting';
 import { getBaseSemanticLayer } from './views';
 import { getClientConfig,tableIdentifier } from './config';
-import { flatSchema,safeSourceError,sourceAccess,type SourceAccess } from './sourceAccess';
+import { flatSchema,safeSourceError,sourceAccess,sourceMetricFieldAvailable,type SourceAccess } from './sourceAccess';
 export function sourceTable(clientId:string,role:SourceRole){
   const c=getClientConfig(clientId),table=c.semanticMappings.tables[role];
   if(table){tableIdentifier(table);const [p,d]=table.split('.');if(p!==c.bigQueryProject||!c.bigQueryDatasets.includes(d))throw new Error('Configured source is outside tenant datasets');}return table??null;
@@ -21,10 +21,12 @@ export async function sourceCatalogue(clientId:string,access:SourceAccess=source
     const definition=SOURCE_DEFINITIONS[role],table=sourceTable(clientId,role);
     const base={role,table,label:definition.label,api:`/api/analytics/source-metrics/${role}`,dateField:definition.dateField,dateMeaning:definition.dateMeaning,legacyConsumers:definition.legacyConsumers,warning:definition.warning};
     if(!table)return {...base,status:'NOT_CONFIGURED',schema:[],metrics:[],rowCount:null,populated:null,reason:'No source table configured for this role.'};
-    try{const metadata=await access.metadata(table),fields=flatSchema(metadata.schema?.fields||[]),required=[definition.dateField,...definition.requiredIdentityFields],missing=required.filter(f=>!fields.has(f));
-      return {...base,status:missing.length?'SCHEMA_GAP':'SCHEMA_PRESENT',reason:missing.length?`Missing required fields: ${missing.join(', ')}`:null,type:metadata.type??null,
+    try{const metadata=await access.metadata(table),fields=flatSchema(metadata.schema?.fields||[]),required=[...new Set([definition.dateField,...definition.requiredIdentityFields])],missing=required.filter(f=>!fields.has(f));
+      const date=fields.get(definition.dateField),incompatible=date&&(date.repeated||!['STRING','TIMESTAMP','DATETIME','DATE'].includes(date.type))?[definition.dateField]:[];
+      return {...base,status:missing.length||incompatible.length?'SCHEMA_GAP':'SCHEMA_PRESENT',reason:[missing.length?`Missing required fields: ${missing.join(', ')}`:'',incompatible.length?`Incompatible date fields: ${incompatible.join(', ')}`:''].filter(Boolean).join('; ')||null,type:metadata.type??null,
         rowCount:metadata.numRows??null,populated:null,rowCountBasis:'WAREHOUSE_METADATA_NOT_PERIOD_COUNT',missingFields:missing,
-        schema:[...fields].map(([path,value])=>({path,...value})),metrics:definition.metrics.map(m=>({...m,status:!m.field||fields.has(m.field)?'MAPPED_NOT_MEASURED':'FIELD_MISSING'})),
+        incompatibleFields:incompatible,
+        schema:[...fields].map(([path,value])=>({path,...value})),metrics:definition.metrics.map(m=>({...m,status:sourceMetricFieldAvailable(m.field,fields)?'MAPPED_NOT_MEASURED':fields.has(m.field!)?'FIELD_UNSUPPORTED':'FIELD_MISSING'})),
         note:'Schema presence is not evidence of data completeness or source-business correctness.'};
     }catch(e){return {...base,...safeSourceError(e),schema:[],metrics:[],rowCount:null,populated:null};}
   }));

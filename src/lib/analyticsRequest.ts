@@ -1,4 +1,5 @@
 import type { Filters } from '../../server/bigquery/filters';
+import { apiResponseError, readApiEnvelope } from './apiResponse';
 
 export interface AnalyticsScope {
   clientId: string;
@@ -27,19 +28,12 @@ export function analyticsUrl(endpoint: string, scope: AnalyticsScope, extra: Rec
 }
 
 export function analyticsError(response: Response, body: unknown): Error & { status: number } {
-  const payload = body as { error?: unknown; requestId?: unknown } | null;
-  const requestId = response.headers.get('x-request-id') || payload?.requestId;
-  const safeId = typeof requestId === 'string' && /^[a-zA-Z0-9-]{1,100}$/.test(requestId) ? requestId : null;
-  const message = typeof payload?.error === 'string' && payload.error.length <= 1000
-    ? payload.error : `Data request failed (${response.status}). Please retry.`;
-  return Object.assign(new Error(`${message}${safeId ? ` Request ${safeId}.` : ''}`), { status: response.status });
+  return apiResponseError(response, body);
 }
 
 export async function fetchAnalyticsJson<T>(url: string, signal: AbortSignal): Promise<{ data: T; metadata?: Record<string, unknown> }> {
   const response = await fetch(url, { signal, credentials: 'same-origin' });
-  const body = await response.json().catch(() => null);
-  if (!response.ok || body?.success !== true || !Object.hasOwn(body, 'data')) throw analyticsError(response, body);
-  return body;
+  return readApiEnvelope<T>(response);
 }
 
 export function saveBlob(blob: Blob, filename: string): void {

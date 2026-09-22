@@ -101,8 +101,8 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return;
         } catch (failure) {
           if (controller.signal.aborted) return;
-          const status = (failure as { status?: number }).status;
-          if (attempt === 2 || (status !== undefined && status < 500)) {
+          const { status, retryable } = failure as { status?: number; retryable?: boolean };
+          if (attempt === 2 || retryable === false || (status !== undefined && status < 500)) {
             queryClient.clear();
             setClients([]);
             selectClient('');

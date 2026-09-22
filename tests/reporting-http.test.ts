@@ -15,8 +15,8 @@ const release:ReleaseManifest={releaseId:'rhttptest',tenantId:'default_tenant',m
   checks:REQUIRED_CHECKS.map(id=>({id,status:'PASS',observed:'0',expected:'0',jobId:'synthetic'})),approvedBy:'fixture',approvalReference:'test-only'};
 test('HTTP report scope, replay, permission recheck and precision',async()=>{
   process.env.CX_REPORT_SIGNING_KEY='test-only-signing-key-at-least-thirty-two-bytes';
-  let queries=0;
-  const repo:any={configured:true,release:async()=>release,assertSnapshots:async()=>{},query:async()=>{queries++;return {rows:[{metric_id:'fetched_leads',group_key:null,is_total:true,value:'9007199254740993',numerator:'9007199254740993',denominator:null}],jobId:'test'};}};
+  let queries=0,lastQuery='';
+  const repo:any={configured:true,release:async()=>release,assertSnapshots:async()=>{},query:async(compiled:any)=>{queries++;lastQuery=compiled.query;return {rows:compiled.params.evidenceMetric?[]:[{metric_id:'fetched_leads',group_key:null,is_total:true,value:'9007199254740993',numerator:'9007199254740993',denominator:null}],jobId:'test'};}};
   const app=express();app.use(express.json());
   // Test-only principal injection is confined to this test process; production has no bypass.
   app.use((req,res,next)=>{res.locals.principal={subject:req.get('x-test-user')||'test',email:'test@example.com',role:'viewer',tenants:req.get('x-test-deny')?[]:['default_tenant']};next();});
@@ -25,6 +25,10 @@ test('HTTP report scope, replay, permission recheck and precision',async()=>{
   const post=(path:string,body:unknown,headers={})=>fetch(`http://127.0.0.1:${port}/api/reporting/${path}`,{method:'POST',headers:{'Content-Type':'application/json',...headers},body:JSON.stringify(body)});
   const request={tenantId:'default_tenant',startDate:'2026-08-01',endDate:'2026-08-31',observationCutoff:cutoff,dateBasis:'capture_cohort',grouping:'none',currency:'ZAR',metrics:['fetched_leads'],filters:{}};
   try{
+    for(const path of ['catalogue','exceptions']){
+      const duplicate=await fetch(`http://127.0.0.1:${port}/api/reporting/${path}?tenantId=default_tenant&tenantId=default_tenant`);assert.equal(duplicate.status,400);
+      const ignoredScope=await fetch(`http://127.0.0.1:${port}/api/reporting/${path}?tenantId=default_tenant&startDate=2026-08-01`);assert.equal(ignoredScope.status,400);
+    }
     const exceptions=await fetch(`http://127.0.0.1:${port}/api/reporting/exceptions?tenantId=default_tenant`);assert.equal(exceptions.status,200);const exceptionData=(await exceptions.json()).data;assert.equal(exceptionData.rules.find((rule:any)=>rule.id==='identifier_mismatch').count,'0');assert.equal(exceptionData.rules.find((rule:any)=>rule.id==='delivered_not_dialled_sla').count,null);
     const response=await post('reports',{request});assert.equal(response.status,200);const first=(await response.json()).data;assert.equal(first.totals[0].value,'9007199254740993');assert.equal(first.metricDefinitions[0].label,'Fetched Leads');assert.equal(first.metricDefinitions[0].numeratorLabel,'Distinct Lead Submissions');assert.equal(first.metricDefinitions[0].id,'fetched_leads');
     const replay=await post('replay',{token:first.token});assert.equal(replay.status,200);const again=(await replay.json()).data;assert.equal(first.executionId,again.executionId);assert.deepEqual(first.totals,again.totals);
@@ -33,5 +37,11 @@ test('HTTP report scope, replay, permission recheck and precision',async()=>{
     assert.equal((await post('reports',{request:{...request,metrics:['SUM(secret)']}})).status,400);
     assert.equal((await post('reports',{request:{...request,tenantId:'other'}})).status,403);
     assert.equal(queries,2);
+    const grouped=await post('reports',{request:{...request,grouping:'source'}});assert.equal(grouped.status,200);const groupedToken=(await grouped.json()).data.token;
+    const missing=await post('evidence',{token:groupedToken,metricId:'fetched_leads',group:null,groupIsNull:true});assert.equal(missing.status,200);assert.equal((await missing.json()).data.groupIsNull,true);assert.match(lastQuery,/AND group_key IS NULL/);
+    const all=await post('evidence',{token:groupedToken,metricId:'fetched_leads',group:null});assert.equal(all.status,200);assert.equal((await all.json()).data.groupIsNull,false);assert.doesNotMatch(lastQuery,/AND group_key IS NULL/);
+    assert.equal((await post('evidence',{token:groupedToken,metricId:'fetched_leads',group:'Unspecified',groupIsNull:true})).status,400);
+    assert.equal((await post('evidence',{token:groupedToken,metricId:'fetched_leads',group:null,groupIsNull:'true'})).status,400);
+    assert.equal(queries,5);
   }finally{server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));delete process.env.CX_REPORT_SIGNING_KEY;}
 });

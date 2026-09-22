@@ -3,31 +3,35 @@ import React, { useState, useEffect } from 'react';
 import { PageShell } from '../components/PageShell';
 import PageHeader from '../components/PageHeader';
 import { Database, AlertCircle, CheckCircle2, Server, Key, Table } from 'lucide-react';
+import { fetchAnalyticsJson } from '../lib/analyticsRequest';
+import { connectionHealth, type ConnectionHealth } from '../lib/connectionHealth';
 
 export default function Settings() {
-  const { selectedClient } = useClient();
-  const [status, setStatus] = useState<any>(null);
+  const { selectedClient, clientConfig, ready, reportAuthenticationFailure } = useClient();
+  const [result, setStatus] = useState<{ workspace: string; health?: ConnectionHealth; error?: string } | null>(null);
+  const status = result?.workspace === selectedClient ? result : null;
   const [loading, setLoading] = useState(true);
   const [attempt,setAttempt] = useState(0);
 
   useEffect(() => {
-    if (!selectedClient) return;
+    if (!selectedClient || !ready) return;
     const controller=new AbortController();
     setLoading(true);setStatus(null);
-    fetch(`/api/analytics/health?${new URLSearchParams({clientId:selectedClient})}`,{signal:controller.signal,credentials:'same-origin'})
-      .then(async res => {const payload=await res.json();if(!res.ok)throw new Error(typeof payload.error==='string'?payload.error:`Connection check failed (${res.status})`);return payload;})
-      .then(data => {
+    fetchAnalyticsJson<unknown>(`/api/analytics/health?${new URLSearchParams({clientId:selectedClient})}`,controller.signal)
+      .then(payload => {
         if(controller.signal.aborted)return;
-        setStatus(data);
+        setStatus({ workspace: selectedClient, health: connectionHealth(payload.data) });
         setLoading(false);
       })
       .catch(error => {
         if(controller.signal.aborted)return;
-        setStatus({ success: false, error: error instanceof Error ? error.message : 'Could not reach server.' });
+        const message=error instanceof Error ? error.message : 'Could not reach server.';
+        if ((error as {status?:number})?.status===401) reportAuthenticationFailure(message);
+        setStatus({ workspace: selectedClient, error: message });
         setLoading(false);
       });
     return ()=>controller.abort();
-  }, [selectedClient,attempt]);
+  }, [selectedClient,ready,attempt,reportAuthenticationFailure]);
 
   return (
     <PageShell>
@@ -38,6 +42,9 @@ export default function Settings() {
       />
 
       <div className="max-w-3xl space-y-8">
+        <div className="rounded-lg border border-slate-200 bg-surface-sec p-4 text-sm text-text-sec" role="note">
+          Read-only data access. Connection checks and reports do not create, update, or delete Google Cloud tables or source records.
+        </div>
         <div className="enterprise-card overflow-hidden">
           <div className="p-5 border-b border-slate-200 bg-surface-sec/50 flex items-center gap-3">
             <Database className="w-5 h-5 text-teal" />
@@ -45,19 +52,19 @@ export default function Settings() {
           </div>
           
           <div className="p-6">
-            {loading ? (
+            {loading || !status ? (
               <div className="text-sm text-text-sec">Checking connection...</div>
-            ) : status?.success ? (
+            ) : status.health ? (
               <div className="space-y-6">
                 <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 px-4 py-3 rounded-lg border border-emerald-100">
                   <CheckCircle2 className="w-5 h-5" />
-                  <span className="font-medium text-sm">Connection check succeeded: {status.client || selectedClient}</span>
+                  <span className="font-medium text-sm">Connection check succeeded: {clientConfig?.name || selectedClient}</span>
                 </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div className="p-4 bg-surface-sec rounded border border-slate-100">
                     <div className="text-text-sec mb-1 flex items-center gap-2"><Server className="w-4 h-4"/> Authentication</div>
-                    <div className="font-medium">Service Account (ADC)</div>
+                    <div className="font-medium">Server-managed Google credentials</div>
                   </div>
                   <div className="p-4 bg-surface-sec rounded border border-slate-100">
                     <div className="text-text-sec mb-1 flex items-center gap-2"><Key className="w-4 h-4"/> Client ID</div>
@@ -65,7 +72,8 @@ export default function Settings() {
                   </div>
                   <div className="p-4 bg-surface-sec rounded border border-slate-100">
                     <div className="text-text-sec mb-1 flex items-center gap-2"><Table className="w-4 h-4"/> Latest Reported Source Timestamp</div>
-                    <div className="font-medium">{status.health?.latestData ? new Date(status.health.latestData.value).toLocaleString() : 'N/A'}</div>
+                    <div className="font-medium">{status.health.latestData ? new Date(status.health.latestData).toLocaleString(undefined,{timeZone:clientConfig?.timezone || 'UTC'}) : 'No valid timestamp reported'}</div>
+                    <div className="mt-1 text-xs text-text-sec">{clientConfig?.timezone || 'UTC'} · Freshness not independently verified</div>
                   </div>
                   <div className="p-4 bg-surface-sec rounded border border-slate-100">
                     <div className="text-text-sec mb-1 flex items-center gap-2"><Database className="w-4 h-4"/> Connection</div>
@@ -74,7 +82,7 @@ export default function Settings() {
                 </div>
 
                 <div className="text-xs text-text-sec mt-4 border-t border-slate-100 pt-4">
-                  Note: Client database credentials are now strictly managed server-side via the central <code>ClientDataSource</code> configuration. Frontend configuration is disabled to enforce analytical integrity.
+                  Database credentials and source mappings are managed in the app’s server configuration. This screen cannot modify credentials, cloud permissions, tables, or source records.
                 </div>
               </div>
             ) : (
@@ -82,7 +90,7 @@ export default function Settings() {
                 <AlertCircle className="w-5 h-5 mt-0.5" />
                 <div>
                   <h4 className="font-medium text-sm">Connection Failed</h4>
-                  <p className="text-sm mt-1 opacity-90">{status?.error || status?.health?.error || 'Unknown error'}</p>
+                  <p className="text-sm mt-1 opacity-90">{status.error || 'Unknown error'}</p>
                   <button type="button" className="cx-button-secondary mt-3" onClick={()=>setAttempt(value=>value+1)}>Retry connection check</button>
                 </div>
               </div>

@@ -25,7 +25,7 @@ export function useAnalyticsData<T = any>(endpoint: string, extraParams: Record<
         throw error;
       }
     },
-    retry: (count, error: Error & { status?: number }) => (error.status ?? 0) >= 500 && count < 1,
+    retry: (count, error: Error & { status?: number; retryable?: boolean }) => error.retryable !== false && (error.status ?? 0) >= 500 && count < 1,
     staleTime: 120000, gcTime: 600000, refetchOnWindowFocus: false,
   });
   const unavailable = !enabled || !!result.error;

@@ -20,7 +20,7 @@ export default function Explore(){
   useLayoutEffect(()=>{pending.current=new URLSearchParams(params);},[params]);
   const parsed=useMemo(()=>{try{return {view:readExploreView(params),error:null};}catch(error){return {view:DEFAULT_VIEW,error:error instanceof Error?error.message:'Invalid Explore view.'};}},[params]);
   const {view}=parsed,selectionError=filterError||parsed.error;
-  const scope={clientId:selectedClient||'default_tenant',startDate,endDate,filters};
+  const scope={clientId:selectedClient,startDate,endDate,filters};
   const query=useExploreData(view,scope,selectionError);
   const metric=METRICS.find(m=>m.id===view.metric)!;
   const visual=safeChart(view,query.data?.rows);

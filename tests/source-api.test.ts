@@ -59,6 +59,37 @@ test('missing metric column is returned as unavailable, not queried',async()=>{
   const result=await getSourceMetrics('marketing',scope,f.access);assert.equal(result.metrics.find(m=>m.id==='clicks')!.value,null);assert.equal(result.metrics.find(m=>m.id==='clicks')!.status,'UNAVAILABLE');
   assert.doesNotMatch(f.queries[0].query,/s\.`clicks`/);
 });
+test('source catalogue and query compiler agree that repeated or structured metrics are unsupported',async()=>{
+  for(const field of [{name:'clicks',type:'INT64',mode:'REPEATED'},{name:'clicks',type:'RECORD',fields:[{name:'count',type:'INT64'}]}]){
+    const f=fixture(),original=f.access.metadata;
+    f.access.metadata=async table=>{
+      const meta=await original(table);
+      if(table===sourceTable(scope.clientId,'marketing'))meta.schema!.fields=meta.schema!.fields!.map(existing=>existing.name==='clicks'?field:existing);
+      return meta;
+    };
+    const catalogue=await sourceCatalogue(scope.clientId,f.access);
+    assert.equal(catalogue.sources.find(s=>s.role==='marketing')!.metrics.find(m=>m.id==='clicks')!.status,'FIELD_UNSUPPORTED');
+    const compiled=compileSourceMetrics('marketing',scope,await f.access.metadata(sourceTable(scope.clientId,'marketing')!));
+    assert.equal(compiled.available[2],false);assert.doesNotMatch(compiled.query,/s\.`clicks`/);
+  }
+});
+test('structured grouping and filter fields fail before sending invalid casts to BigQuery',()=>{
+  const marketing=metadata('marketing');marketing.schema!.fields=marketing.schema!.fields!.map(field=>field.name==='channel'?{name:'channel',type:'RECORD',fields:[{name:'id',type:'STRING'}]}:field);
+  assert.throws(()=>compileSourceMetrics('marketing',scope,marketing,'channel'),e=>e instanceof RequestError&&e.status===422);
+  const calls=metadata('calls');calls.schema!.fields=calls.schema!.fields!.map(field=>field.name==='vendor'?{name:'vendor',type:'JSON'}:field);
+  assert.throws(()=>compileSourceMetrics('calls',{...scope,filters:{vendor:{operator:'equals',value:'MTN'}}},calls),e=>e instanceof RequestError&&e.status===422);
+});
+test('incompatible source dates are reported as schema gaps in the catalogue',async()=>{
+  const f=fixture(),original=f.access.metadata;
+  f.access.metadata=async table=>{const meta=await original(table);if(table===sourceTable(scope.clientId,'marketing'))meta.schema!.fields=meta.schema!.fields!.map(field=>field.name==='date'?{name:'date',type:'INT64'}:field);return meta;};
+  const result=await sourceCatalogue(scope.clientId,f.access),marketing=result.sources.find(s=>s.role==='marketing')!;
+  assert.equal(marketing.status,'SCHEMA_GAP');assert.match(marketing.reason!,/Incompatible date fields: date/);
+});
+test('nested HLC vendor arrays are not cast to scalar vendor identifiers',()=>{
+  const leads=metadata('leads'),hlc=leads.schema!.fields!.find(field=>field.name==='hlc_details')!;
+  hlc.fields!.find(field=>field.name==='vendor')!.mode='REPEATED';
+  assert.throws(()=>compileSourceMetrics('leads',{...scope,filters:{vendor:{operator:'equals',value:'MTN'}}},leads),e=>e instanceof RequestError&&e.status===422);
+});
 test('absent date mapping rejects the query instead of ignoring the date selection',()=>{
   assert.throws(()=>compileSourceMetrics('timeToDial',scope,{schema:{fields:[]}}),e=>e instanceof RequestError&&e.status===422);
 });

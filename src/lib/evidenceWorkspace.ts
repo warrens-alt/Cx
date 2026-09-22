@@ -2,7 +2,7 @@ import type { MetricResult, ReportResult } from '../../contracts/reporting';
 import { compareExactDecimal, divideExactDecimal, subtractExactDecimals } from '../../contracts/exactDecimal';
 
 export interface ReportPeriod { startDate: string; endDate: string; }
-export interface VendorMetricRow { group: string; metrics: Record<string, MetricResult>; }
+export interface VendorMetricRow { key: string; group: string; rawGroup: string | null; metrics: Record<string, MetricResult>; }
 
 const DAY = 86400000;
 const day = (value: string) => Date.parse(`${value}T00:00:00.000Z`);
@@ -27,14 +27,14 @@ export function previousMatchedDays(startDate: string, endDate: string): ReportP
 
 export function pivotReportGroups(report: ReportResult | null | undefined): VendorMetricRow[] {
   if (!report) return [];
-  const map = new Map<string, Record<string, MetricResult>>();
+  const map = new Map<string | null, Record<string, MetricResult>>();
   for (const metric of report.groups) {
-    const group = metric.group ?? 'Unspecified';
+    const group = metric.group;
     const row = map.get(group) ?? {};
     row[metric.metricId] = metric;
     map.set(group, row);
   }
-  return [...map].map(([group, metrics]) => ({ group, metrics }));
+  return [...map].map(([rawGroup, metrics]) => ({ key: JSON.stringify(rawGroup), group: rawGroup ?? 'Unspecified (missing value)', rawGroup, metrics }));
 }
 
 export function metricValue(report: ReportResult | null | undefined, metricId: string, group?: string): MetricResult | null {

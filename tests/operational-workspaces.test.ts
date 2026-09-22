@@ -64,6 +64,16 @@ test('vendor rows pivot exact metric results without summing overlapping groups'
   const rows=pivotReportGroups(report);assert.equal(rows.length,1);assert.equal(rows[0].metrics.delivered_episodes.value,'9007199254740993');assert.equal(rows[0].metrics.call_coverage.value,null);
 });
 
+test('missing vendor identity never merges with a literal Unspecified vendor',()=>{
+  const metric={metricId:'delivered_episodes',value:'1',numerator:'1',denominator:null,unit:'records',calculationStatus:'CHECKED',completeness:'COMPLETE',reason:null};
+  const report={groups:[{...metric,group:null},{...metric,group:'Unspecified',value:'2'},{...metric,group:'Unspecified (missing value)',value:'3'}]} as unknown as ReportResult;
+  const rows=pivotReportGroups(report);
+  assert.equal(rows.length,3);assert.equal(new Set(rows.map(row=>row.key)).size,3);
+  assert.equal(rows.find(row=>row.rawGroup===null)?.metrics.delivered_episodes.value,'1');
+  assert.equal(rows.find(row=>row.rawGroup==='Unspecified')?.metrics.delivered_episodes.value,'2');
+  assert.equal(rows.find(row=>row.rawGroup==='Unspecified (missing value)')?.metrics.delivered_episodes.value,'3');
+});
+
 test('commercial evidence carries stage, currency and agreement version from the same population',()=>{
   const request={tenantId:'default_tenant',startDate:'2026-07-01',endDate:'2026-07-31',observationCutoff:cutoff,dateBasis:'capture_cohort' as const,grouping:'vendor' as const,currency:'ZAR',metrics:['collected_value'],filters:{}};
   const sql=compileEvidence(request,release,'collected_value','Vendor A').query;

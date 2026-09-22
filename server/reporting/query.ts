@@ -54,12 +54,13 @@ export function compileReport(req: ReportRequest, release: ReleaseManifest): Com
   });
   return { query: `${query}\nSELECT * FROM (${selects.join('\nUNION ALL\n')}) ORDER BY metric_id,is_total DESC,group_key LIMIT 5001`, params };
 }
-export function compileEvidence(req: ReportRequest, release: ReleaseManifest, metric: string, group: string | null): CompiledQuery {
+export function compileEvidence(req: ReportRequest, release: ReleaseManifest, metric: string, group: string | null, groupIsNull = false): CompiledQuery {
   if (!req.metrics.includes(metric) || !metricAvailability(metric, req, release).available) throw new RequestError('This metric is unavailable in the signed reporting scope', 422);
+  if (typeof groupIsNull !== 'boolean' || (groupIsNull && (group !== null || req.grouping === 'none'))) throw new RequestError('Invalid null evidence group');
   if (group !== null && (req.grouping === 'none' || typeof group !== 'string' || group.length > 200)) throw new RequestError('Invalid evidence group');
   const { query, params } = populationQuery(req, release);
   return { query: `${query} SELECT metric_id,entity_key,lead_key,vendor,source,medium,CAST(captured_at AS STRING) AS captured_at,CAST(event_at AS STRING) AS event_at,
       CAST(numerator AS STRING) AS numerator,CAST(denominator AS STRING) AS denominator,source_record_id,batch_id,commercial_stage,currency,agreement_version
-      FROM scoped WHERE metric_id=@evidenceMetric ${group !== null ? 'AND group_key=@evidenceGroup' : ''}
+      FROM scoped WHERE metric_id=@evidenceMetric ${groupIsNull ? 'AND group_key IS NULL' : group !== null ? 'AND group_key=@evidenceGroup' : ''}
       ORDER BY entity_key LIMIT 50001`, params: { ...params, evidenceMetric: metric, ...(group !== null ? { evidenceGroup: group } : {}) } };
 }

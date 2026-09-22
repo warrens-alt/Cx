@@ -1,6 +1,6 @@
 import { SOURCE_DEFINITIONS,type SourceMetric,type SourceRole,SOURCE_ROLES } from '../../contracts/sourceCoverage';
 import { conditionSql,RequestError,validateScope,type QueryScope,type Scalar } from './filters';
-import { flatSchema,sourceAccess,type SourceAccess,type TableMetadata } from './sourceAccess';
+import { flatSchema,sourceAccess,sourceMetricFieldAvailable,type SourceAccess,type TableMetadata } from './sourceAccess';
 import { sourceTable } from './sourceCatalog';
 import { tableIdentifier } from './config';
 import { validTimestampSql } from './integrity';
@@ -23,18 +23,20 @@ export function compileSourceMetrics(role:SourceRole,input:QueryScope,meta:Table
   if(!scope.startDate||!scope.endDate)throw new RequestError('Explicit source-metric startDate and endDate are required');
   if(Date.parse(scope.endDate)-Date.parse(scope.startDate)>365*86400000)throw new RequestError('Select at most 366 inclusive days');
   if(grouping && (role!=='marketing'||!['channel'].includes(grouping)))throw new RequestError('Unsupported source grouping');
-  if(grouping&&(!fields.has(grouping)||fields.get(grouping)!.repeated))throw new RequestError(`The ${grouping} field is not available`,422);
+  if(grouping&&!sourceMetricFieldAvailable(grouping,fields))throw new RequestError(`The ${grouping} field is not available`,422);
   const params:Record<string,Scalar>={startDate:scope.startDate,endDate:scope.endDate};
   const clauses=[`DATE(${validTimestampSql(atom(dateField))}) BETWEEN @startDate AND @endDate`];
   for(const [key,condition]of Object.entries(scope.filters||{})){
     const field=def.filters[key as keyof typeof def.filters];
     if(!field||!fields.has(field))throw new RequestError(`${def.label} has no verified ${key} mapping. That filter cannot be silently ignored.`,422);
     if(field==='hlc_details.vendor'){
-      if(!fields.get('hlc_details')?.repeated)throw new RequestError('HLC evidence requires a repeated record field',422);
+      const hlc=meta.schema?.fields?.find(field=>field.name==='hlc_details'),vendor=hlc?.fields?.find(field=>field.name==='vendor');
+      if(hlc?.mode!=='REPEATED'||!['RECORD','STRUCT'].includes(hlc.type.toUpperCase()))throw new RequestError('HLC evidence requires a repeated record field',422);
+      if(!vendor||!sourceMetricFieldAvailable('vendor',flatSchema([vendor])))throw new RequestError('HLC evidence requires a compatible scalar vendor field',422);
       clauses.push(`EXISTS (SELECT 1 FROM UNNEST(s.hlc_details) h WHERE ${conditionSql('CAST(h.vendor AS STRING)',condition,`source_filter_${key}`,params)})`);
-    }else {if(fields.get(field)!.repeated)throw new RequestError('Repeated filter mapping is unsupported',422);clauses.push(conditionSql(`CAST(${atom(field)} AS STRING)`,condition,`source_filter_${key}`,params));}
+    }else {if(!sourceMetricFieldAvailable(field,fields))throw new RequestError('A compatible scalar filter mapping is required',422);clauses.push(conditionSql(`CAST(${atom(field)} AS STRING)`,condition,`source_filter_${key}`,params));}
   }
-  const metrics=def.metrics,available=metrics.map(m=>!m.field||!!fields.get(m.field)&&!fields.get(m.field)!.repeated&&!['RECORD','STRUCT','JSON','BYTES','GEOGRAPHY'].includes(fields.get(m.field)!.type));
+  const metrics=def.metrics,available=metrics.map(m=>sourceMetricFieldAvailable(m.field,fields));
   const parts=metrics.flatMap((m,i)=>{
     if(!available[i])return [`CAST(NULL AS STRING) AS m${i}_value`,`CAST(NULL AS STRING) AS m${i}_valid`,`CAST(NULL AS STRING) AS m${i}_invalid`,`CAST(NULL AS STRING) AS m${i}_missing`];
     const v=m.field?normalized(m):'NULL';

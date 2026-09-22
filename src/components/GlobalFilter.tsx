@@ -7,17 +7,27 @@ import { useClient } from '../lib/ClientContext';
 import { useFilters } from '../lib/FilterContext';
 import { utcDatePresets } from '../lib/presentation';
 import { filterDescription, filterLabel } from '../lib/scopePresentation';
+import { fetchAnalyticsJson } from '../lib/analyticsRequest';
 export function cn(...inputs: any[]) { return twMerge(clsx(inputs)); }
 export default function GlobalFilter(_props:{onOpenMobileMenu?:()=>void;onOpenCommandPalette?:()=>void}) {
-  const {selectedClient}=useClient(), {startDate,endDate,setDateRange,filters,setFilter,toggleFilterValue,clearFilters}=useFilters();
+  const {selectedClient,ready,reportAuthenticationFailure}=useClient(), {startDate,endDate,setDateRange,filters,setFilter,toggleFilterValue,clearFilters}=useFilters();
   const cache=useQueryClient(),[refreshing,setRefreshing]=useState(false),[refreshError,setRefreshError]=useState<string|null>(null);
-  const options=useQuery({queryKey:['filter-options',selectedClient,startDate,endDate],queryFn:async({signal})=>{
-    const response=await fetch('/api/analytics/filter-options?'+new URLSearchParams({clientId:selectedClient,startDate,endDate}),{signal,credentials:'same-origin'});
-    const payload=await response.json();if(!response.ok||payload.success!==true)throw new Error(typeof payload.error==='string'?payload.error:'Filter choices could not be loaded');return payload.data;
+  const options=useQuery({queryKey:['filter-options',selectedClient,startDate,endDate],enabled:ready&&!!selectedClient,queryFn:async({signal})=>{
+    if(!ready||!selectedClient)throw new Error('Select an authorised workspace before requesting filter choices.');
+    try{
+      const payload=await fetchAnalyticsJson<Record<string,unknown>>('/api/analytics/filter-options?'+new URLSearchParams({clientId:selectedClient,startDate,endDate}),signal);
+      if(!payload.data||typeof payload.data!=='object'||Array.isArray(payload.data)||['vendors','sources','mediums','grades','vettings'].some(key=>payload.data[key]!==undefined&&!Array.isArray(payload.data[key])))throw new Error('Filter choices returned an invalid data shape. No substitute choices were used.');
+      const sections=payload.data.sections as Record<string,{status?:string;reason?:string}>|undefined;
+      if(sections&&Object.values(sections).some(section=>section?.status!=='AVAILABLE'))throw new Error('Some filter choices could not be read from the source. Retry the connection check or reload this report; an empty option list is not proof of an empty source.');
+      return payload.data;
+    }catch(error){
+      if((error as {status?:number}).status===401&&!signal.aborted)reportAuthenticationFailure((error as Error).message);
+      throw error;
+    }
   },staleTime:120000,retry:false});
-  const opts=options.data||{},presets=utcDatePresets();
+  const opts=(options.error?{}:options.data)||{},presets=utcDatePresets();
   const refresh=async()=>{setRefreshing(true);setRefreshError(null);try{await Promise.all([cache.invalidateQueries({queryKey:['analytics']},{throwOnError:true}),options.refetch({throwOnError:true})]);}catch{setRefreshError('Reload could not complete. Retry the affected report.');}finally{setRefreshing(false);}};
-  const select=(key:string,label:string,values:any[])=>{
+  const select=(key:string,label:string,values:unknown)=>{
     const selected=filters[key]?.operator==='in'?(filters[key].values || []).map(String):[];
     const choices=[...new Set([...selected,...(Array.isArray(values)?values.map(v=>String(v?.value??v)):[])])];
     return <div className="cx-field" key={key}><span id={`scope-${key}`}>{label}</span><details className="cx-multiselect"><summary aria-labelledby={`scope-${key} scope-${key}-selection`}><span id={`scope-${key}-selection`}>{selected.length ? `${selected.length} selected` : 'All'}</span></summary>

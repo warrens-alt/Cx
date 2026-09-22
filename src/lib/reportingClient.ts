@@ -1,5 +1,6 @@
 import type { CheckEvidence, MetricDefinition, ReleaseManifest, ReportRequest, ReportResult, SourceEvidence } from '../../contracts/reporting';
 import type { ExceptionRuleResult } from '../../contracts/operations';
+import { readApiEnvelope } from './apiResponse';
 
 export interface ReportingCatalogue {
   metrics: Array<MetricDefinition & { sourceTables: Array<{ fact: string; table: string | null; sourceStatus: string }> }>;
@@ -30,10 +31,7 @@ export async function reportingRequest<T>(path: string, signal?: AbortSignal, bo
     credentials: 'same-origin',
     ...(body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
   });
-  const json = await response.json().catch(() => null);
-  if (!response.ok || json?.success !== true || json.data === undefined) {
-    throw Object.assign(new Error(typeof json?.error === 'string' ? json.error : `Reporting request failed (${response.status}).`), { status: response.status });
-  }
+  const json = await readApiEnvelope<T>(response, 'Reporting');
   return json.data as T;
 }
 

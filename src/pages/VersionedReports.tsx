@@ -8,11 +8,9 @@ import { formatReportValue, unavailableDateMetrics, validateReportDraft } from '
 import { useClient } from '../lib/ClientContext';
 import { METRICS, METRIC_BY_ID, type MetricResult, type ReportRequest, type ReportResult } from '../../contracts/reporting';
 import { exactNumber } from '../../contracts/format';
+import { reportingRequest } from '../lib/reportingClient';
 async function requestJson(path: string, signal?: AbortSignal, body?: unknown) {
-  const res = await fetch('/api/reporting' + path, { signal, credentials: 'same-origin', ...(body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }) });
-  const json = await res.json().catch(() => null);
-  if (!res.ok || json?.success !== true || !json.data) throw new Error(typeof json?.error === 'string' ? json.error : `Report request failed (${res.status}). Retry the request.`);
-  return json.data;
+  return reportingRequest<any>(path, signal, body);
 }
 export default function VersionedReports() {
   const { selectedClient } = useClient();
@@ -59,13 +57,13 @@ export default function VersionedReports() {
     if (submitted) void queryClient.cancelQueries({ queryKey: ['versioned-report', submitted], exact: true });
     evidenceController.current?.abort(); setSubmitted(null); setCancelled(true);
   };
-  const inspect = async(metricId: string, group: string | null = null) => {
+  const inspect = async(metricId: string, group: string | null = null, groupIsNull = false) => {
     if (!data) return;
     evidenceController.current?.abort();
     const controller = new AbortController(); evidenceController.current = controller;
     const executionId = data.executionId;
     setBusy(true); setEvidenceError(null); setEvidence(null);
-    try { const result = await requestJson('/evidence',controller.signal,{ token:data.token,metricId,group }); if (result.executionId !== executionId) throw new Error('Evidence is from a different reporting execution'); if (!controller.signal.aborted) setEvidence(result); }
+    try { const result = await requestJson('/evidence',controller.signal,{ token:data.token,metricId,group,groupIsNull }); if (result.executionId !== executionId) throw new Error('Evidence is from a different reporting execution'); if (!controller.signal.aborted) setEvidence(result); }
     catch(e) { if (!controller.signal.aborted) setEvidenceError(e instanceof Error ? e.message : 'Evidence request failed'); }
     finally { if (!controller.signal.aborted) setBusy(false); }
   };

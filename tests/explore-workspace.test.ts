@@ -108,7 +108,8 @@ test('loaded CSV can include rows hidden by local search',()=>{
   const r=response([row('Alpha',1),row('Beta',2)]);const matching=selectRows(r.rows,'Alpha','label','0');assert.ok(exportCsv(r.rows,DEFAULT_VIEW,{}).includes('Beta'));assert.ok(!exportCsv(matching,DEFAULT_VIEW,{}).includes('Beta'));
 });
 test('query cache excludes presentation controls and consumes the cancellation signal',()=>{
-  const s=fs.readFileSync('src/lib/explore/useExploreData.ts','utf8');assert.match(s,/signal,credentials/);assert.match(s,/secondaryDimension:view.secondary/);assert.match(s,/cancelQueries/);
+  const s=fs.readFileSync('src/lib/explore/useExploreData.ts','utf8');assert.match(s,/fetchAnalyticsJson\(analyticsUrl\('explore'.*\),signal\)/);assert.match(s,/secondaryDimension:view.secondary/);assert.match(s,/cancelQueries/);
+  assert.match(s,/available=ready&&!!scope.clientId&&!selectionError/);assert.match(s,/status===401&&!signal.aborted/);
   const r=s.slice(s.indexOf('const request='),s.indexOf('const query='));assert.doesNotMatch(r,/view\.chart|search|sort|minSample/);
 });
 test('new table remains integrated with shared visuals and default table-only mode',()=>{
