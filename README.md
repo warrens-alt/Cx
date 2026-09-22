@@ -35,4 +35,10 @@ Use Node.js 22. Install locked dependencies with `npm ci`. Configure server-side
 
 Only `dist/client` is publicly served. Backend artifacts are written to `dist/server`. `PORT` defaults to 3000. `/api/health` is public; analytical routes require verified identity and tenant access.
 
+## Synthetic demo while authentication is being configured
+
+Open `/overview?mode=demo`, or select **View demo data** on the workspace-access error screen. This is an explicitly separate, client-only experience using fictional July 2026 records. Its banner remains visible; it makes no analytics or BigQuery API requests and does not create an authenticated user or live tenant. Charts, filters, and record details describe only the synthetic scenario, not validated business results.
+
+Use **Open live mode** to leave the demo. Mode changes reload the document so demo and live state are not mixed. Live routes still require the existing identity gateway and access policy. Demo is never selected automatically following an authentication error, and no server credentials or Cloud configuration are needed for it.
+
 Warehouse joins, tariff contracts, timestamp interpretation, independent reconciliation and deployment checks remain outstanding. Consult the implementation-status document for the exact scope and limitations.

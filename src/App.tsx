@@ -8,6 +8,7 @@ import { BRAND, PAGE_TITLES } from '../contracts/naming';
 import { ClientProvider, useClient } from './lib/ClientContext';
 import { FilterProvider, useFilters } from './lib/FilterContext';
 import { DENSITY_KEY, safeDensity, type TableDensity } from './lib/presentation';
+import { applicationMode, DEMO_ENTRY_URL } from './lib/applicationMode';
 import Sidebar from './components/Sidebar';
 import Modal from './components/Modal';
 import AppliedScope from './components/AppliedScope';
@@ -41,6 +42,7 @@ const Revetting = React.lazy(() => import('./pages/Revetting'));
 const VendorPerformance = React.lazy(() => import('./pages/VendorPerformance'));
 const Exceptions = React.lazy(() => import('./pages/Exceptions'));
 const CommercialReconciliation = React.lazy(() => import('./pages/CommercialReconciliation'));
+const DemoWorkspace = React.lazy(() => import('./pages/DemoWorkspace'));
 
 
 function Shell() {
@@ -75,7 +77,7 @@ function Shell() {
         </div>
       </header>
       <main id="main-content" tabIndex={-1} className="cx-main">
-        {clientError && <section className="cx-scope-error" role="alert"><AlertCircle size={22}/><div><h1>Workspace access is unavailable</h1><p>{clientError}</p><p>No fallback tenant or substitute analytical data is being displayed.</p><button type="button" className="cx-button-primary" onClick={retryClient}>Retry workspace access</button></div></section>}
+        {clientError && <section className="cx-scope-error" role="alert"><AlertCircle size={22}/><div><h1>Workspace access is unavailable</h1><p>{clientError}</p><p>No fallback tenant or substitute analytical data is being displayed.</p><div className="flex flex-wrap gap-3"><button type="button" className="cx-button-primary" onClick={retryClient}>Retry workspace access</button><a className="cx-button-secondary" href={DEMO_ENTRY_URL}>View demo data</a></div><p>The demo is a separate, synthetic workspace. It does not access your live data.</p></div></section>}
         {clientLoading && <p className="cx-filter-loading" role="status">Verifying workspace access…</p>}
         {clientReady && !evidencePage && <div className="cx-legacy-bar"><div role="note"><AlertCircle size={16} aria-hidden="true"/><span><strong>Legacy exploration</strong> — not independently reconciled.</span><Link to="/reports">Evidence Reports <ArrowRight size={14}/></Link></div>
           <button type="button" className="cx-button-secondary" aria-expanded={filtersOpen} aria-controls="legacy-filters" onClick={()=>setFiltersOpen(old=>!old)}><SlidersHorizontal size={15}/>Report filters</button>
@@ -122,4 +124,11 @@ function Shell() {
     {command && <Suspense fallback={<Modal open label="Loading search" onClose={()=>setCommand(false)}><div className="p-6"><p role="status">Loading navigation…</p><button className="cx-button-secondary mt-4" onClick={()=>setCommand(false)}>Close</button></div></Modal>}><CommandPalette isOpen onClose={()=>setCommand(false)}/></Suspense>}
   </div>;
 }
-export default function App(){return <BrowserRouter><ClientProvider><FilterProvider><Shell/></FilterProvider></ClientProvider></BrowserRouter>;}
+function LiveApp(){return <BrowserRouter><ClientProvider><FilterProvider><Shell/></FilterProvider></ClientProvider></BrowserRouter>;}
+
+export default function App(){
+  // Select before mounting any live provider. Full-document mode links also discard the old query cache.
+  const mode = applicationMode(typeof window === 'undefined' ? '' : window.location.search);
+  if (mode === 'demo') return <Suspense fallback={<p className="p-8" role="status">Loading synthetic demo data… No live connection.</p>}><DemoWorkspace/></Suspense>;
+  return <LiveApp/>;
+}

@@ -2,6 +2,7 @@ import { verifyExploreWorkspace } from './explore-controls.mjs';
 import { verifyVettingControls } from './vetting-controls.mjs';
 import { verifyVisualControls } from './visual-controls.mjs';
 import { verifySourceApis } from './source-api-controls.mjs';
+import { verifyDemoWorkspace } from './demo-controls.mjs';
 // Browser assertions against handwritten fixtures. This does not certify live warehouse accuracy.
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
@@ -167,6 +168,7 @@ try{
   checks += await verifyVettingControls(browser, 'http://127.0.0.1:3187');
   checks += await verifyExploreWorkspace(browser, 'http://127.0.0.1:3187');
   checks += await verifyRequestStates(browser, 'http://127.0.0.1:3187');
+  checks += await verifyDemoWorkspace(browser, 'http://127.0.0.1:3187');
   checks += (await verifyVisualRefinements(browser, 'http://127.0.0.1:3187', 'verification/visual-refinements')).checks;
   fs.writeFileSync('verification/browser.json',JSON.stringify({checks,passed:checks,source:'synthetic API fixtures',liveWarehouseTested:false},null,2));console.log(`${checks} browser assertions passed on desktop and mobile using synthetic responses.`);
 }catch(error){if(activePage&&!activePage.isClosed()){fs.mkdirSync('verification',{recursive:true});await activePage.screenshot({path:'verification/browser-failure.png',fullPage:true});fs.writeFileSync('verification/browser-failure.html',await activePage.content());fs.writeFileSync('verification/browser-failure.json',JSON.stringify({url:activePage.url(),checks,message:String(error),stack:error.stack,headers:await activePage.locator('thead th').allTextContents(),accessibility:await activePage.locator('body').ariaSnapshot()},null,2));}throw error;}finally{if(browser)await browser.close();server.kill('SIGTERM');}
