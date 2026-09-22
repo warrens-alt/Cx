@@ -16,6 +16,7 @@ import { requireTenant } from './securityPolicy';
 import { requireAdmin } from './security';
 import { cacheResponse } from './cacheMiddleware';
 import { MODEL_VERSION } from './bigquery/integrity';
+import { serverQueryCache } from './cache';
 
 export const analyticsRouter = Router();
 validateEnvironment();
@@ -62,6 +63,11 @@ function metadata(res: Response, view: string) {
 function asyncRoute(handler: (req: Request, res: Response) => Promise<unknown> | unknown) {
   return (req: Request, res: Response, next: NextFunction) => Promise.resolve().then(() => handler(req, res)).catch(next);
 }
+function singleFlight<T>(res: Response, operation: string, input: unknown, work: () => Promise<T>, ttlSeconds = 120): Promise<T> {
+  const principal = res.locals.principal;
+  const key = JSON.stringify(['analytics-query', principal.subject, principal.role, [...principal.tenants].sort(), operation, res.locals.scope, input]);
+  return serverQueryCache.getOrFetch(key, work, ttlSeconds);
+}
 analyticsRouter.get('/clients', (_req, res) => {
   const allowed = res.locals.principal.tenants as string[];
   res.json({ success: true, data: getAllClients().filter(c => allowed.includes(c.id)).map(c => ({ id: c.id, name: c.name, currency: c.currency, timezone: c.timezone, capabilities: c.capabilities })) });
@@ -93,21 +99,23 @@ for (const [routes, query, mixedGrain] of reports) {
     if (mixedGrain && Object.keys(scope.filters || {}).some(k => !['source', 'vendor', 'medium'].includes(k))) {
       throw new RequestError('This report supports date, source, vendor and medium filters. Advanced cross-grain filters require further validation.', 422);
     }
-    const data = await query(scope);
+    const data = await singleFlight(res, routes[0], null, () => query(scope));
     res.json({ success: true, metadata: metadata(res, routes[0]), data });
   }));
 }
 analyticsRouter.get('/cohorts', cacheResponse(120), asyncRoute(async (req, res) => {
-  const data = await getCohortStats({ ...res.locals.scope, cohortType: scalarString(req.query.cohortType, 'cohortType'), metricType: scalarString(req.query.metricType, 'metricType') });
+  const input = { ...res.locals.scope, cohortType: scalarString(req.query.cohortType, 'cohortType'), metricType: scalarString(req.query.metricType, 'metricType') };
+  const data = await singleFlight(res, 'cohorts', {cohortType:input.cohortType,metricType:input.metricType}, () => getCohortStats(input));
   res.json({ success: true, metadata: metadata(res, 'event_time_cohorts'), data });
 }));
 analyticsRouter.get('/leads', cacheResponse(60), asyncRoute(async (req, res) => {
-  const data = await legacy.getLeads({ ...res.locals.scope, limit: boundedInteger(req.query.limit, 100, 1000, 1), offset: boundedInteger(req.query.offset, 0, 100000) });
+  const input = { ...res.locals.scope, limit: boundedInteger(req.query.limit, 100, 1000, 1), offset: boundedInteger(req.query.offset, 0, 100000) };
+  const data = await singleFlight(res, 'leads', {limit:input.limit,offset:input.offset}, () => legacy.getLeads(input), 60);
   res.json({ success: true, metadata: metadata(res, 'vw_leads'), data: data.map(row => ({ ...row, quality: 'Not independently verified' })) });
 }));
 analyticsRouter.get('/lead-timeline/:leadId', cacheResponse(120), asyncRoute(async (req, res) => {
   const leadId = scalarString(req.params.leadId, 'leadId', 100);
-  const data = await getLeadTimeline({ ...res.locals.scope, leadId: leadId! });
+  const data = await singleFlight(res, 'lead-timeline', {leadId}, () => getLeadTimeline({ ...res.locals.scope, leadId: leadId! }));
   res.json({ success: true, metadata: metadata(res, 'lead_timeline'), data });
 }));
 analyticsRouter.get('/export', asyncRoute(async (req, res) => {
@@ -130,7 +138,8 @@ for (const route of ['/explore', '/insights', '/drivers']) {
     const metric = scalarString(input.metric, 'metric') || (route === '/explore' ? 'leads' : 'activations');
     const dimension = scalarString(input.dimension, 'dimension') || 'source';
     const args = { ...res.locals.scope, metric, dimension, secondaryDimension: scalarString(input.secondaryDimension, 'secondaryDimension') };
-    const result = route === '/explore' ? await executeDynamicQuery(args) : await generateDriverInsights(args);
+    type DynamicResult = Awaited<ReturnType<typeof executeDynamicQuery>> | Awaited<ReturnType<typeof generateDriverInsights>>;
+    const result = await singleFlight<DynamicResult>(res, route, {metric,dimension,secondaryDimension:args.secondaryDimension}, () => route === '/explore' ? executeDynamicQuery(args) : generateDriverInsights(args));
     res.json({ success: true, data: result.data, metadata: { ...metadata(res, route.slice(1)), ...result.metadata } });
   });
   analyticsRouter.get(route, cacheResponse(120), handler);

@@ -1,4 +1,5 @@
 import { LEGACY_LABELS as L } from './naming';
+import { divideExactDecimal, exactDecimal } from './exactDecimal';
 /** A description of the existing lead-grain queries, not certification of those queries. */
 export interface LegacyMetricDefinition {
   id: string; canonicalName: string; reportValue: string; metric: string; definition: string;
@@ -81,8 +82,13 @@ export const EXPLORER_METRICS = Object.keys(EXPLORER_EXPRESSIONS).map(id => {
     additive: m.denominator === 'N/A', definition: m.definition, formula: m.waterfallMetricFormula };
 });
 export function formatExplorerValue(value: unknown, id: string, currency = 'ZAR'): string {
-  if (value === null || value === undefined || value === '' || !Number.isFinite(Number(value))) return 'Unavailable';
+  // Historic callers can already hold an IEEE-754 display value; warehouse/API paths use strings.
+  const exact = exactDecimal(typeof value === 'number' && Number.isFinite(value) ? String(value) : value);
+  if (exact === null) return 'Unavailable';
   const m = EXPLORER_METRICS.find(x => x.id === id);
-  const number = Number(value).toLocaleString('en-GB', { maximumFractionDigits: m?.unit === 'records' ? 0 : 2 });
+  const roundedRaw = m?.unit === 'records' ? exact : divideExactDecimal(exact, '1', 2) ?? exact;
+  const rounded = roundedRaw.includes('.') ? roundedRaw.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '') : roundedRaw;
+  const [whole, fraction] = rounded.split('.');
+  const number = `${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}${fraction === undefined ? '' : `.${fraction}`}`;
   return `${m?.unit === 'currency' ? currency + ' ' : ''}${number}${m?.unit === 'percent' ? '%' : ''}`;
 }

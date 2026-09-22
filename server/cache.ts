@@ -4,7 +4,7 @@ interface CacheEntry<T> {
   expiresAt: number;
 }
 
-class QueryCache {
+export class QueryCache {
   private cache = new Map<string, CacheEntry<any>>();
   private inflight = new Map<string, Promise<any>>();
   private maxEntries: number;

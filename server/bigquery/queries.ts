@@ -2,6 +2,9 @@ import { getBigQueryClient } from './client';
 import { getClientConfig } from './config';
 import { getBaseSemanticLayer } from './views';
 import { METRIC_DEFINITIONS } from './metrics';
+import { vendorScope } from '../analyticsContext';
+import { divideExactDecimal, exactDecimal, exactPercent, subtractExactIntegers } from '../../contracts/exactDecimal';
+import { querySection } from './sectionResults';
 
 export interface BaseQueryParams {
   clientId: string;
@@ -16,6 +19,7 @@ export function buildWhereClause(params: BaseQueryParams, targetView: string = "
   }
   let clauses = [];
   const queryParams: any = {};
+  Object.assign(queryParams, vendorScope().params);
   
   const dateField = targetView === 'vw_consumers' ? 'DATE(latest_lead_date)' : 'capture_date';
   
@@ -447,17 +451,25 @@ export async function getCallPerformanceStats(params: BaseQueryParams) {
   const bq = getBigQueryClient(client.bigQueryProject);
   const { sql: leadsSql, queryParams: leadsParams } = buildWhereClause(params, 'vw_leads');
   const { sql: txSql, queryParams: txParams } = buildWhereClause(params, 'vw_lead_vendor_transactions');
+  const callSourceAvailable = Boolean(client.semanticMappings.tables.calls);
+  const read = (row: Record<string, unknown> | undefined, key: string, fallback: string | null = null) => {
+    const raw = row?.[key];
+    if (raw === null || raw === undefined) return fallback;
+    const value = exactDecimal(raw);
+    if (value === null) throw new Error(`Call-performance precision contract failed for ${key}`);
+    return value;
+  };
   
   const summaryQuery = `
     ${getBaseSemanticLayer(client)}
     SELECT
-      ${METRIC_DEFINITIONS.called_leads.numerator} as calledLeads,
-      ${METRIC_DEFINITIONS.delivered_leads.numerator} as deliveredLeads,
-      ${METRIC_DEFINITIONS.total_calls.numerator} as totalCalls,
-      ${METRIC_DEFINITIONS.one_call_leads.numerator} as oneCallLeads,
-      ${METRIC_DEFINITIONS.repeat_call_leads.numerator} as repeatCallLeads,
-      SUM(IFNULL(total_call_duration_seconds, 0)) as totalDurationSeconds,
-      AVG(NULLIF(total_call_duration_seconds, 0)) as avgDurationSeconds
+      CAST(${METRIC_DEFINITIONS.called_leads.numerator} AS STRING) as calledLeads,
+      CAST(${METRIC_DEFINITIONS.delivered_leads.numerator} AS STRING) as deliveredLeads,
+      CAST(${METRIC_DEFINITIONS.total_calls.numerator} AS STRING) as totalCalls,
+      CAST(${METRIC_DEFINITIONS.one_call_leads.numerator} AS STRING) as oneCallLeads,
+      CAST(${METRIC_DEFINITIONS.repeat_call_leads.numerator} AS STRING) as repeatCallLeads,
+      CAST(SUM(total_call_duration_seconds) AS STRING) as totalDurationSeconds,
+      CAST(AVG(NULLIF(total_call_duration_seconds, 0)) AS STRING) as avgDurationSeconds
     FROM vw_leads
     ${leadsSql}
   `;
@@ -473,13 +485,12 @@ export async function getCallPerformanceStats(params: BaseQueryParams) {
         WHEN total_calls >= 5 THEN '5+ Calls'
         ELSE '0 Calls'
       END as bucket,
-      COUNT(DISTINCT lead_id) as current_leads,
-      COUNT(DISTINCT lead_id) as previous_leads,
-      COUNTIF(has_rpc = true) as rpc_count,
-      COUNTIF(has_sale = true) as sale_count,
-      COUNTIF(has_activation = true) as activation_count,
-      SUM(IFNULL(total_revenue, 0)) as total_revenue,
-      SUM(IFNULL(total_call_duration_seconds, 0)) as bucket_duration_seconds
+      CAST(COUNT(DISTINCT lead_id) AS STRING) as current_leads,
+      CAST(COUNTIF(has_rpc = true) AS STRING) as rpc_count,
+      CAST(COUNTIF(has_sale = true) AS STRING) as sale_count,
+      CAST(COUNTIF(has_activation = true) AS STRING) as activation_count,
+      CAST(SUM(total_revenue) AS STRING) as total_revenue,
+      CAST(SUM(total_call_duration_seconds) AS STRING) as bucket_duration_seconds
     FROM vw_leads
     ${leadsSql}
     GROUP BY bucket
@@ -488,11 +499,11 @@ export async function getCallPerformanceStats(params: BaseQueryParams) {
   const hourlyQuery = `
     ${getBaseSemanticLayer(client)}
     SELECT
-      EXTRACT(HOUR FROM first_call_timestamp) as hour,
-      COUNT(DISTINCT lead_id) as volume,
-      COUNTIF(has_rpc = true) as rpc_count,
-      COUNTIF(has_sale = true) as sale_count,
-      SUM(IFNULL(total_revenue, 0)) as revenue
+      CAST(EXTRACT(HOUR FROM first_call_timestamp) AS STRING) as hour,
+      CAST(COUNT(DISTINCT lead_id) AS STRING) as volume,
+      CAST(COUNTIF(has_rpc = true) AS STRING) as rpc_count,
+      CAST(COUNTIF(has_sale = true) AS STRING) as sale_count,
+      CAST(SUM(total_revenue) AS STRING) as revenue
     FROM vw_leads
     ${leadsSql ? leadsSql + ' AND' : 'WHERE'} first_call_timestamp IS NOT NULL
     GROUP BY hour
@@ -513,10 +524,10 @@ export async function getCallPerformanceStats(params: BaseQueryParams) {
         WHEN 6 THEN 'Fri'
         WHEN 7 THEN 'Sat'
       END as day_name,
-      COUNT(DISTINCT lead_id) as volume,
-      COUNTIF(has_rpc = true) as rpc_count,
-      COUNTIF(has_sale = true) as sale_count,
-      SUM(IFNULL(total_revenue, 0)) as revenue
+      CAST(COUNT(DISTINCT lead_id) AS STRING) as volume,
+      CAST(COUNTIF(has_rpc = true) AS STRING) as rpc_count,
+      CAST(COUNTIF(has_sale = true) AS STRING) as sale_count,
+      CAST(SUM(total_revenue) AS STRING) as revenue
     FROM vw_leads
     ${leadsSql ? leadsSql + ' AND' : 'WHERE'} first_call_timestamp IS NOT NULL
     GROUP BY day_num, day_name
@@ -528,14 +539,14 @@ export async function getCallPerformanceStats(params: BaseQueryParams) {
     ${getBaseSemanticLayer(client)}
     SELECT
       COALESCE(vendor, 'Unknown') as vendor,
-      COUNT(DISTINCT lead_id) as total_leads,
-      COUNTIF(total_calls > 0) as called_leads,
-      SUM(total_calls) as total_calls,
-      COUNTIF(total_calls = 1) as one_call_leads,
-      COUNTIF(rpc = true) as rpc_count,
-      COUNTIF(sale = true) as sale_count,
-      COUNTIF(activation = true) as activation_count,
-      SUM(IFNULL(revenue, 0)) as total_revenue
+      CAST(COUNT(DISTINCT lead_id) AS STRING) as total_leads,
+      CAST(COUNTIF(total_calls > 0) AS STRING) as called_leads,
+      CAST(SUM(total_calls) AS STRING) as total_calls,
+      CAST(COUNTIF(total_calls = 1) AS STRING) as one_call_leads,
+      CAST(COUNTIF(rpc = true) AS STRING) as rpc_count,
+      CAST(COUNTIF(sale = true) AS STRING) as sale_count,
+      CAST(COUNTIF(activation = true) AS STRING) as activation_count,
+      CAST(SUM(revenue) AS STRING) as total_revenue
     FROM vw_lead_vendor_transactions
     ${txSql ? txSql + ' AND' : 'WHERE'} vendor IS NOT NULL
     GROUP BY vendor
@@ -547,10 +558,10 @@ export async function getCallPerformanceStats(params: BaseQueryParams) {
     ${getBaseSemanticLayer(client)}
     SELECT
       COALESCE(NULLIF(TRIM(latest_dialer_status), ''), NULLIF(TRIM(normalised_status_family), ''), 'General / Uncategorized') as disposition,
-      COUNT(DISTINCT transaction_id) as volume,
-      COUNTIF(rpc = true) as rpc_count,
-      COUNTIF(sale = true) as sale_count,
-      SUM(IFNULL(revenue, 0)) as total_revenue
+      CAST(COUNT(DISTINCT transaction_id) AS STRING) as volume,
+      CAST(COUNTIF(rpc = true) AS STRING) as rpc_count,
+      CAST(COUNTIF(sale = true) AS STRING) as sale_count,
+      CAST(SUM(revenue) AS STRING) as total_revenue
     FROM vw_lead_vendor_transactions
     ${txSql ? txSql + ' AND' : 'WHERE'} total_calls > 0
     GROUP BY disposition
@@ -558,140 +569,139 @@ export async function getCallPerformanceStats(params: BaseQueryParams) {
     LIMIT 10
   `;
   
-  const [
-    [summaryRows], 
-    [bucketRows],
-    [hourlyRows],
-    [dayRows],
-    [vendorRows],
-    [dispositionRows]
-  ] = await Promise.all([
-    bq.query({ query: summaryQuery, params: leadsParams }),
-    bq.query({ query: bucketsQuery, params: leadsParams }),
-    bq.query({ query: hourlyQuery, params: leadsParams }).catch(() => [[]]),
-    bq.query({ query: dayOfWeekQuery, params: leadsParams }).catch(() => [[]]),
-    bq.query({ query: vendorQuery, params: txParams }).catch(() => [[]]),
-    bq.query({ query: dispositionQuery, params: txParams }).catch(() => [[]])
+  const [summarySection, bucketSection, hourlySection, weekdaySection, vendorSection, dispositionSection] = await Promise.all([
+    querySection(async () => (await bq.query({ query: summaryQuery, params: leadsParams }))[0] as Record<string, unknown>[], callSourceAvailable),
+    querySection(async () => (await bq.query({ query: bucketsQuery, params: leadsParams }))[0] as Record<string, unknown>[], callSourceAvailable),
+    querySection(async () => (await bq.query({ query: hourlyQuery, params: leadsParams }))[0] as Record<string, unknown>[], callSourceAvailable),
+    querySection(async () => (await bq.query({ query: dayOfWeekQuery, params: leadsParams }))[0] as Record<string, unknown>[], callSourceAvailable),
+    querySection(async () => (await bq.query({ query: vendorQuery, params: txParams }))[0] as Record<string, unknown>[], callSourceAvailable),
+    querySection(async () => (await bq.query({ query: dispositionQuery, params: txParams }))[0] as Record<string, unknown>[], callSourceAvailable),
   ]);
-  
-  const summary = summaryRows[0] || {};
-  const calledLeads = Number(summary.calledLeads) || 0;
-  const totalCalls = Number(summary.totalCalls) || 0;
-  const totalDurationSec = Number(summary.totalDurationSeconds) || 0;
-  const avgDurationSec = Number(summary.avgDurationSeconds) || 0;
-  
-  const formatSecToMinSec = (sec: number) => {
-    if (!sec || sec <= 0) return '0m 0s';
-    const mins = Math.floor(sec / 60);
-    const remainingSecs = Math.round(sec % 60);
-    return `${mins}m ${remainingSecs}s`;
-  };
+  const summary = summarySection.data?.[0];
+  const calledLeads = read(summary, 'calledLeads');
+  const deliveredLeads = read(summary, 'deliveredLeads');
+  const totalCalls = read(summary, 'totalCalls');
+  const oneCallLeads = read(summary, 'oneCallLeads');
+  const repeatCallLeads = read(summary, 'repeatCallLeads');
+  const totalDurationSeconds = read(summary, 'totalDurationSeconds');
+  const avgDurationSeconds = read(summary, 'avgDurationSeconds');
 
   const bucketOrder = ['1 Call', '2 Calls', '3 Calls', '4 Calls', '5+ Calls'];
-  const chart = bucketOrder.map(b => {
-    const row = bucketRows.find((r: any) => r.bucket === b) || { current: 0, current_leads: 0, previous: 0, previous_leads: 0, rpc_count: 0, sale_count: 0, activation_count: 0, total_revenue: 0, bucket_duration_seconds: 0 };
-    const current = Number(row.current ?? row.current_leads) || 0;
+  const chart = bucketSection.data && bucketOrder.map(b => {
+    const row = bucketSection.data!.find(r => r.bucket === b);
+    const current = read(row, 'current_leads', '0')!;
+    const rpcCount = read(row, 'rpc_count', '0')!;
+    const saleCount = read(row, 'sale_count', '0')!;
+    const activationCount = read(row, 'activation_count', '0')!;
+    const revenue = read(row, 'total_revenue', '0')!;
+    const duration = read(row, 'bucket_duration_seconds', '0')!;
     return {
       bucket: b,
       current,
-      previous: Number(row.previous ?? row.previous_leads) || 0,
-      rpc: current > 0 ? Number(((Number(row.rpc_count) / current) * 100).toFixed(1)) : 0,
-      sale: current > 0 ? Number(((Number(row.sale_count) / current) * 100).toFixed(1)) : 0,
-      activation: current > 0 ? Number(((Number(row.activation_count) / current) * 100).toFixed(1)) : 0,
-      revPerLead: current > 0 ? Number((Number(row.total_revenue) / current).toFixed(2)) : 0,
-      totalRevenue: Number(row.total_revenue) || 0,
-      avgDurationSec: current > 0 ? Math.round(Number(row.bucket_duration_seconds || 0) / current) : 0
+      rpc: exactPercent(rpcCount, current, 1),
+      sale: exactPercent(saleCount, current, 1),
+      activation: exactPercent(activationCount, current, 1),
+      rpcCount, saleCount, activationCount,
+      revPerLead: divideExactDecimal(revenue, current, 2),
+      totalRevenue: revenue,
+      avgDurationSec: divideExactDecimal(duration, current, 0),
     };
   });
 
   // Hourly curve
-  const hourly = (hourlyRows || []).map((r: any) => {
-    const vol = Number(r.volume) || 0;
-    const hourNum = Number(r.hour);
-    const label = `${hourNum.toString().padStart(2, '0')}:00`;
+  const hourly = hourlySection.data?.map(r => {
+    const vol = read(r, 'volume', '0')!, hour = read(r, 'hour', '0')!;
     return {
-      hour: hourNum,
-      label,
+      hour,
+      label: `${hour.padStart(2, '0')}:00`,
       volume: vol,
-      rpcRate: vol > 0 ? Number(((Number(r.rpc_count) / vol) * 100).toFixed(1)) : 0,
-      saleRate: vol > 0 ? Number(((Number(r.sale_count) / vol) * 100).toFixed(1)) : 0,
-      revenue: Number(r.revenue) || 0
+      rpcRate: exactPercent(read(r, 'rpc_count', '0'), vol, 1),
+      saleRate: exactPercent(read(r, 'sale_count', '0'), vol, 1),
+      revenue: read(r, 'revenue', '0'),
     };
   });
 
   // Day of week curve
   const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const dayOfWeek = daysOfWeek.map(dayName => {
-    const r = (dayRows || []).find((row: any) => row.day_name === dayName) || { volume: 0, rpc_count: 0, sale_count: 0, revenue: 0 };
-    const vol = Number(r.volume) || 0;
+  const dayOfWeek = weekdaySection.data && daysOfWeek.map(dayName => {
+    const row = weekdaySection.data!.find(value => value.day_name === dayName);
+    const vol = read(row, 'volume', '0')!;
     return {
       day: dayName,
       volume: vol,
-      rpcRate: vol > 0 ? Number(((Number(r.rpc_count) / vol) * 100).toFixed(1)) : 0,
-      saleRate: vol > 0 ? Number(((Number(r.sale_count) / vol) * 100).toFixed(1)) : 0,
-      revenue: Number(r.revenue) || 0
+      rpcRate: exactPercent(read(row, 'rpc_count', '0'), vol, 1),
+      saleRate: exactPercent(read(row, 'sale_count', '0'), vol, 1),
+      revenue: read(row, 'revenue', '0'),
     };
   });
 
   // Vendor efficiency
-  const vendors = (vendorRows || []).map((r: any) => {
-    const called = Number(r.called_leads) || 0;
-    const calls = Number(r.total_calls) || 0;
+  const vendors = vendorSection.data?.map(r => {
+    const called = read(r, 'called_leads', '0')!, calls = read(r, 'total_calls', '0')!;
+    const revenue = read(r, 'total_revenue', '0')!;
     return {
       vendor: r.vendor,
-      totalLeads: Number(r.total_leads) || 0,
+      totalLeads: read(r, 'total_leads', '0'),
       calledLeads: called,
       totalCalls: calls,
-      avgCallsPerLead: called > 0 ? Number((calls / called).toFixed(1)) : 0,
-      oneCallRate: called > 0 ? Number(((Number(r.one_call_leads) / called) * 100).toFixed(1)) : 0,
-      rpcRate: called > 0 ? Number(((Number(r.rpc_count) / called) * 100).toFixed(1)) : 0,
-      saleRate: called > 0 ? Number(((Number(r.sale_count) / called) * 100).toFixed(1)) : 0,
-      activationRate: called > 0 ? Number(((Number(r.activation_count) / called) * 100).toFixed(1)) : 0,
-      revenue: Number(r.total_revenue) || 0,
-      revPerLead: called > 0 ? Number((Number(r.total_revenue) / called).toFixed(2)) : 0
+      avgCallsPerLead: divideExactDecimal(calls, called, 1),
+      oneCallRate: exactPercent(read(r, 'one_call_leads', '0'), called, 1),
+      rpcRate: exactPercent(read(r, 'rpc_count', '0'), called, 1),
+      saleRate: exactPercent(read(r, 'sale_count', '0'), called, 1),
+      activationRate: exactPercent(read(r, 'activation_count', '0'), called, 1),
+      revenue,
+      revPerLead: divideExactDecimal(revenue, called, 2),
     };
   });
 
   // Dispositions
-  const totalDispVolume = (dispositionRows || []).reduce((acc: number, r: any) => acc + (Number(r.volume) || 0), 0);
-  const dispositions = (dispositionRows || []).map((r: any) => {
-    const vol = Number(r.volume) || 0;
+  const totalDispVolume = dispositionSection.data?.reduce((total, row) => total + BigInt(read(row, 'volume', '0')!), 0n).toString() ?? null;
+  const dispositions = dispositionSection.data?.map(r => {
+    const vol = read(r, 'volume', '0')!;
     return {
       disposition: r.disposition,
       volume: vol,
-      share: totalDispVolume > 0 ? Number(((vol / totalDispVolume) * 100).toFixed(1)) : 0,
-      rpcRate: vol > 0 ? Number(((Number(r.rpc_count) / vol) * 100).toFixed(1)) : 0,
-      saleRate: vol > 0 ? Number(((Number(r.sale_count) / vol) * 100).toFixed(1)) : 0,
-      revenue: Number(r.total_revenue) || 0
+      share: exactPercent(vol, totalDispVolume, 1),
+      rpcRate: exactPercent(read(r, 'rpc_count', '0'), vol, 1),
+      saleRate: exactPercent(read(r, 'sale_count', '0'), vol, 1),
+      revenue: read(r, 'total_revenue', '0'),
     };
   });
 
   // Calculate fatigue waste: dials in 5+ bucket that yielded no sale or rpc
-  const bucket5 = chart.find(b => b.bucket === '5+ Calls');
-  const highDialLeads = bucket5 ? bucket5.current : 0;
-  const highDialSales = bucket5 ? Math.round((bucket5.current * bucket5.sale) / 100) : 0;
-  const highDialUnconverted = Math.max(0, highDialLeads - highDialSales);
+  const bucket5 = chart?.find(b => b.bucket === '5+ Calls');
+  const highDialUnconverted = bucket5 ? subtractExactIntegers(bucket5.current, bucket5.saleCount) : null;
 
   return {
     calledLeads,
-    deliveredLeads: Number(summary.deliveredLeads) || 0,
+    deliveredLeads,
     totalCalls,
-    avgCalls: calledLeads > 0 ? (totalCalls / calledLeads).toFixed(1) : '0.0',
-    oneCallLeads: Number(summary.oneCallLeads) || 0,
-    oneCallRate: calledLeads > 0 ? ((Number(summary.oneCallLeads) / calledLeads) * 100).toFixed(1) : '0.0',
-    repeatCallLeads: Number(summary.repeatCallLeads) || 0,
-    repeatCallRate: calledLeads > 0 ? ((Number(summary.repeatCallLeads) / calledLeads) * 100).toFixed(1) : '0.0',
-    totalDurationSeconds: totalDurationSec,
-    totalDurationHours: (totalDurationSec / 3600).toFixed(1),
-    avgDurationSec: Math.round(avgDurationSec),
-    avgDuration: avgDurationSec > 0 ? formatSecToMinSec(avgDurationSec) : 'N/A', 
-    medianDuration: 'N/A', 
+    avgCalls: totalCalls !== null && calledLeads !== null ? divideExactDecimal(totalCalls, calledLeads, 1) : null,
+    oneCallLeads,
+    oneCallRate: exactPercent(oneCallLeads, calledLeads, 1),
+    repeatCallLeads,
+    repeatCallRate: exactPercent(repeatCallLeads, calledLeads, 1),
+    totalDurationSeconds,
+    totalDurationHours: totalDurationSeconds === null ? null : divideExactDecimal(totalDurationSeconds, '3600', 1),
+    avgDurationSec: avgDurationSeconds,
+    avgDuration: avgDurationSeconds,
+    medianDuration: null,
     highDialUnconverted,
     chart,
     hourly,
     dayOfWeek,
     vendors,
-    dispositions
+    dispositions,
+    sections: {
+      summary: { status: summarySection.status, reason: summarySection.reason },
+      callAttemptBands: { status: bucketSection.status, reason: bucketSection.reason },
+      firstDialHour: { status: hourlySection.status, reason: hourlySection.reason },
+      firstDialWeekday: { status: weekdaySection.status, reason: weekdaySection.reason },
+      vendors: { status: vendorSection.status, reason: vendorSection.reason },
+      dispositions: { status: dispositionSection.status, reason: dispositionSection.reason },
+    },
+    precision: 'exact_decimal_strings',
+    rpcDefinition: 'Observed dialler RPC evidence only. Sales and legacy HLC RPC flags do not create observed RPC.',
   };
 }
 
@@ -799,17 +809,18 @@ export async function getQualityStats(params: BaseQueryParams) {
     LIMIT 10
   `;
   
-  const [[rows], [gradeRows]] = await Promise.all([
+  const [[rows], gradeSection] = await Promise.all([
     bq.query({ query, params: queryParams }),
-    bq.query({ query: breakdownQuery, params: queryParams }).catch(() => [[]])
+    querySection(async () => (await bq.query({ query: breakdownQuery, params: queryParams }))[0] as Record<string, unknown>[]),
   ]);
+  const gradeRows = gradeSection.data;
   
   const stats = rows[0] || { total: 0, passed: 0, failed: 0 };
   const total = Number(stats.total) || 0;
   const passed = Number(stats.passed) || 0;
   const failed = Number(stats.failed) || 0;
   
-  const fullFunnelByGrade = (gradeRows || []).map((r: any) => {
+  const fullFunnelByGrade = gradeRows?.map((r: any) => {
     const l = Number(r.leads) || 0;
     const d = Number(r.delivered) || 0;
     const c = Number(r.called) || 0;
@@ -873,12 +884,13 @@ export async function getQualityStats(params: BaseQueryParams) {
       revPerLead: total > 0 ? Number((Number(stats.revenue) / total).toFixed(2)) : 0
     },
     fullFunnelByGrade,
-    chart: fullFunnelByGrade.map(g => ({
+    chart: fullFunnelByGrade?.map(g => ({
       grade: g.grade,
       leads: g.leads,
       rpc: g.rpcs,
       sale: g.sales
-    })),
+    })) ?? null,
+    sections: { gradeBreakdown: { status: gradeSection.status, reason: gradeSection.reason } },
     reasons: [
       { reason: 'Duplicate Record', count: failed, percentage: total > 0 ? Number(((failed / total) * 100).toFixed(1)) : 0 },
       { reason: 'Standard Passed', count: passed, percentage: total > 0 ? Number(((passed / total) * 100).toFixed(1)) : 0 }
@@ -1209,17 +1221,11 @@ export async function getFilterOptions(params: BaseQueryParams) {
     LIMIT 60
   `;
   
-  try {
-    const [[rows], [vendorRows]] = await Promise.all([
-      bq.query({ query, params: dateParams }).catch(err => {
-        console.warn('Filter options metadata query error:', err.message);
-        return [[]];
-      }),
-      bq.query({ query: vendorQuery, params: dateParams }).catch(err => {
-        console.warn('Vendor options query error:', err.message);
-        return [[]];
-      })
-    ]);
+  const [metadataSection, vendorSection] = await Promise.all([
+    querySection(async () => (await bq.query({ query, params: dateParams }))[0] as Record<string, unknown>[]),
+    querySection(async () => (await bq.query({ query: vendorQuery, params: dateParams }))[0] as Record<string, unknown>[]),
+  ]);
+  const rows = metadataSection.data ?? [], vendorRows = vendorSection.data ?? [];
     
     const sources = new Set<string>();
     const mediums = new Set<string>();
@@ -1233,23 +1239,17 @@ export async function getFilterOptions(params: BaseQueryParams) {
       if (r.vetting) vettings.add(r.vetting);
     });
 
-    return {
-      sources: Array.from(sources).sort(),
-      mediums: Array.from(mediums).sort(),
-      vendors: (vendorRows || []).filter((v: any) => v && v.value),
-      grades: Array.from(grades).sort(),
-      vettings: Array.from(vettings).sort(),
-    };
-  } catch (err: any) {
-    console.error('Failed in getFilterOptions:', err.message);
-    return {
-      sources: [],
-      mediums: [],
-      vendors: [],
-      grades: [],
-      vettings: [],
-    };
-  }
+  return {
+    sources: Array.from(sources).sort(),
+    mediums: Array.from(mediums).sort(),
+    vendors: vendorRows.filter((v: any) => v && v.value),
+    grades: Array.from(grades).sort(),
+    vettings: Array.from(vettings).sort(),
+    sections: {
+      sourceOptions: { status: metadataSection.status, reason: metadataSection.reason },
+      vendorOptions: { status: vendorSection.status, reason: vendorSection.reason },
+    },
+  };
 }
 
 export async function getAcquisitionStats(params: BaseQueryParams) {
@@ -1305,7 +1305,7 @@ export async function getAcquisitionStats(params: BaseQueryParams) {
   
   const [[rows], [downstreamRows]] = await Promise.all([
     bq.query({ query, params: queryParams }),
-    bq.query({ query: downstreamQuery, params: leadsParams }).catch(() => [[]])
+    bq.query({ query: downstreamQuery, params: leadsParams })
   ]);
   
   const ds = downstreamRows?.[0] || {};
@@ -1430,19 +1430,20 @@ export async function getOutcomesStats(params: BaseQueryParams) {
     [summaryRows],
     [timeseriesRows],
     [sourcesRows],
-    [vendorsRows]
+    vendorsSection,
   ] = await Promise.all([
     bq.query({ query: summaryQuery, params: queryParams }),
     bq.query({ query: timeseriesQuery, params: queryParams }),
     bq.query({ query: sourcesQuery, params: queryParams }),
-    bq.query({ query: vendorsQuery, params: vendorTxParams }).catch(() => [[]])
+    querySection(async () => (await bq.query({ query: vendorsQuery, params: vendorTxParams }))[0] as Record<string, unknown>[]),
   ]);
 
   return {
     summary: summaryRows[0] || { total_activations: 0, total_revenue: 0 },
     timeseries: timeseriesRows || [],
     sources: sourcesRows || [],
-    vendors: vendorsRows || []
+    vendors: vendorsSection.data,
+    sections: { vendors: { status: vendorsSection.status, reason: vendorsSection.reason } },
   };
 }
 
@@ -2158,10 +2159,7 @@ export async function getReconciliationValidation(params: BaseQueryParams) {
     [rawRows],
     [semRows]
   ] = await Promise.all([
-    bq.query({ query: rawQuery }).catch(err => {
-      console.warn("Raw reconciliation query error:", err.message);
-      return [[{}]];
-    }),
+    bq.query({ query: rawQuery }),
     bq.query({ query: semanticQuery, params: queryParams })
   ]);
 

@@ -1,4 +1,4 @@
-import { METRIC_BY_ID, type ReportResult, type MetricResult, type ReleaseManifest } from '../../contracts/reporting';
+import { METRIC_BY_ID, type QueryExecutionEvidence, type ReportResult, type MetricResult, type ReleaseManifest } from '../../contracts/reporting';
 import { RequestError } from '../bigquery/filters';
 import { reportRequest } from './scope';
 import { metricAvailability, validateRelease } from './release';
@@ -30,6 +30,7 @@ export class ReportService {
     const { request, release } = await this.resolve(token, principal);
     const query = compileReport(request, release);
     const result = query ? await this.repository.query(query) : { rows: [], jobId: 'not-run-no-eligible-metrics' };
+    const queryEvidence: QueryExecutionEvidence = result.evidence ?? { durationMs: 0, bytesProcessed: null, cacheHit: null, subqueryCount: 0, completion: 'NOT_RUN' };
     if (result.rows.length > 5000) throw new RequestError('Report has too many groups; narrow the selection. No partial totals were published.', 413);
     const totals: MetricResult[] = [], groups: MetricResult[] = [];
     for (const id of request.metrics) {
@@ -44,7 +45,7 @@ export class ReportService {
         (row.is_total ? totals : groups).push(metric);
       }
     }
-    return { executionId: digest({ request, release: digest(release) }), queryJobId: result.jobId, engineHash: release.engineHash, token, request, releaseId: release.releaseId,
+    return { executionId: digest({ request, release: digest(release) }), queryJobId: result.jobId, queryEvidence, engineHash: release.engineHash, token, request, releaseId: release.releaseId,
       modelVersion: release.modelVersion, metricVersion: release.metricVersion, releaseCutoff: release.cutoff,
       sourceBatchIds: release.sourceBatchIds, metricDefinitions: request.metrics.map(id => METRIC_BY_ID[id]), totals, groups, generatedAt: new Date().toISOString(), validation: release.checks, sources: release.sources };
   }
@@ -53,6 +54,7 @@ export class ReportService {
     const result = await this.repository.query(compileEvidence(request, release, metric, group));
     if (result.rows.length > 50000) throw new RequestError('Evidence export exceeds 50,000 records. Narrow the signed report scope; truncation is not allowed.', 413);
     return { executionId: digest({ request, release: digest(release) }), request, releaseId: release.releaseId, metricVersion: release.metricVersion,
-      metricId: metric, metricDefinition: METRIC_BY_ID[metric], group, rows: result.rows, rowCount: result.rows.length, truncated: false, jobId: result.jobId };
+      metricId: metric, metricDefinition: METRIC_BY_ID[metric], group, rows: result.rows, rowCount: result.rows.length, truncated: false, jobId: result.jobId,
+      queryEvidence: result.evidence ?? { durationMs: 0, bytesProcessed: null, cacheHit: null, subqueryCount: 0, completion: 'NOT_RUN' } };
   }
 }

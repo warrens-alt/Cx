@@ -3,6 +3,7 @@ export const NAMING_VERSION = 'cx.naming.1.0.0';
 export const BRAND = { name: 'ConversionX', description: 'Lead & Revenue Analytics' } as const;
 export const PAGE_TITLES: Readonly<Record<string, string>> = {
   '/reports': 'Evidence Reports', '/overview': 'Executive Overview (Legacy)', '/insights': 'Performance Changes',
+  '/vendors': 'Vendor Performance', '/exceptions': 'Exceptions & Actions', '/reconciliation': 'Commercial Reconciliation',
   '/explore': 'Data Explorer', '/routing': 'Lead Routing', '/call-performance': 'Call Performance',
   '/speed-to-lead': 'Delivery & First-Dial Timing', '/acquisition': 'Acquisition & Media',
   '/outcomes': 'Sales, Activations & Recorded Revenue', '/sources': 'Lead Sources',

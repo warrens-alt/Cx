@@ -57,8 +57,12 @@ export interface MetricResult {
   unit: MetricDefinition['unit']; calculationStatus: 'CHECKED' | 'UNAVAILABLE';
   completeness: 'COMPLETE' | 'PARTIAL' | 'UNAVAILABLE'; reason: string | null;
 }
+export interface QueryExecutionEvidence {
+  durationMs: number; bytesProcessed: string | null; cacheHit: boolean | null;
+  subqueryCount: number; completion: 'COMPLETED' | 'NOT_RUN';
+}
 export interface ReportResult {
-  queryJobId: string; engineHash: string;
+  queryJobId: string; queryEvidence: QueryExecutionEvidence; engineHash: string;
   executionId: string; token: string; request: ReportRequest; releaseId: string; modelVersion: string; metricVersion: string;
   releaseCutoff: string; sourceBatchIds: string[]; totals: MetricResult[]; groups: MetricResult[];
   metricDefinitions: MetricDefinition[]; generatedAt: string; validation: CheckEvidence[]; sources: SourceEvidence[];

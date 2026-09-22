@@ -1,13 +1,13 @@
 import { BigQuery } from '@google-cloud/bigquery';
 import { RequestError } from '../bigquery/filters';
 import { validateRelease } from './release';
-import type { ReleaseManifest } from '../../contracts/reporting';
+import type { QueryExecutionEvidence, ReleaseManifest } from '../../contracts/reporting';
 import type { CompiledQuery } from './query';
 export interface ReportRepository {
   configured: boolean;
   release(tenant: string, releaseId?: string): Promise<ReleaseManifest | null>;
   assertSnapshots(release: ReleaseManifest): Promise<void>;
-  query(query: CompiledQuery): Promise<{ rows: Record<string, any>[]; jobId: string }>;
+  query(query: CompiledQuery): Promise<{ rows: Record<string, any>[]; jobId: string; evidence?: QueryExecutionEvidence }>;
 }
 /** Dedicated read-only repository: no current-data fallback, no ambient legacy filter context. */
 export class BigQueryReportRepository implements ReportRepository {
@@ -46,8 +46,18 @@ export class BigQueryReportRepository implements ReportRepository {
     }));
   }
   async query(compiled: CompiledQuery) {
+    const started = Date.now();
     const [job] = await this.bq.createQueryJob({ ...compiled, useLegacySql: false, maximumBytesBilled: this.budget, jobTimeoutMs: 60000 });
     const [rows] = await job.getQueryResults();
-    return { rows, jobId: job.id || 'unavailable' };
+    const [metadata] = await job.getMetadata();
+    const statistics = metadata.statistics?.query;
+    const selectStatements = compiled.query.match(/\bSELECT\b/gi)?.length ?? 0;
+    return { rows, jobId: job.id || 'unavailable', evidence: {
+      durationMs: Date.now() - started,
+      bytesProcessed: typeof statistics?.totalBytesProcessed === 'string' ? statistics.totalBytesProcessed : null,
+      cacheHit: typeof statistics?.cacheHit === 'boolean' ? statistics.cacheHit : null,
+      subqueryCount: Math.max(0, selectStatements - 1),
+      completion: 'COMPLETED' as const,
+    } };
   }
 }
