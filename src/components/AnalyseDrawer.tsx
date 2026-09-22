@@ -1,6 +1,7 @@
 import { VisualTable } from './visuals/DataVisual';
 import React, { useEffect, useRef, useState } from 'react';
 import { useAnalyticsData } from '../lib/useAnalyticsData';
+import { decimal, exactLabel } from '../lib/visuals/model';
 interface Props { isOpen: boolean; onClose: () => void; metric: string; metricLabel: string; }
 export default function AnalyseDrawer({ isOpen, onClose, metric, metricLabel }: Props) {
   const [dimension, setDimension] = useState('source');
@@ -26,7 +27,7 @@ export default function AnalyseDrawer({ isOpen, onClose, metric, metricLabel }: 
   }, [isOpen, onClose]);
   if (!isOpen) return null;
   const rows = Array.isArray(data) ? data : [];
-  const format = (value: unknown) => value === null || value === undefined || !Number.isFinite(Number(value)) ? 'Not available' : Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  const format = (value: unknown) => exactLabel(decimal(value));
   return <div className="fixed inset-0 z-50 bg-slate-900/50 flex justify-end"><div ref={panel} role="dialog" aria-modal="true" aria-labelledby="driver-title" className="w-full max-w-3xl bg-surface h-full overflow-y-auto p-6 space-y-5">
     <div className="flex justify-between gap-4"><h2 id="driver-title" className="text-xl font-semibold">Changes in {metricLabel}</h2><button ref={closeButton} onClick={onClose} className="rounded border px-3 py-2" aria-label="Close analysis">Close</button></div>
     <p className="text-sm">Observed changes within the active filters. These comparisons do not establish cause and may reflect different outcome maturity.</p>

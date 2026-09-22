@@ -9,6 +9,9 @@ import { useAnalyticsData } from '../lib/useAnalyticsData';
 import { ArrowUpRight, ArrowDownRight, AlertTriangle, TrendingUp, ChevronRight } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { DataState } from '../components/DataState';
+import { compareExactDecimal } from '../lib/breakdown';
+import { sumExact } from '../lib/explore/model';
+import { decimal, exactLabel } from '../lib/visuals/model';
 
 export default function Insights() {
   const { startDate, endDate } = useFilters();
@@ -24,9 +27,13 @@ export default function Insights() {
 
   const rawList = insightsResponse?.data || insightsResponse || [];
   const rows: any[] = Array.isArray(rawList) ? rawList : [];
-  const topGainers = [...rows].filter(d => d.change > 0).sort((a, b) => b.change - a.change).slice(0, 3);
-  const topLosers = [...rows].filter(d => d.change < 0).sort((a, b) => a.change - b.change).slice(0, 3);
-  const totalChange = rows.reduce((acc: number, d: any) => acc + (Number(d.change) || 0), 0);
+  const changeOf = (row: any) => decimal(row.change);
+  const topLosers = [...rows].filter(d => changeOf(d) !== null && compareExactDecimal(changeOf(d)!, '0') < 0)
+    .sort((a, b) => compareExactDecimal(changeOf(a)!, changeOf(b)!)).slice(0, 3);
+  const totalChange = sumExact(rows.map(changeOf));
+  const totalDirection = totalChange === null ? null : compareExactDecimal(totalChange, '0');
+  const absolute = (value: string) => value.startsWith('-') ? value.slice(1) : value;
+  const label = (value: unknown) => exactLabel(decimal(value));
 
   return (
     <PageShell>
@@ -54,7 +61,7 @@ export default function Insights() {
                   Activation Drivers
                 </div>
                 <div className="text-[14px] text-text-sec leading-relaxed">
-                  During the selected period, overall activations shifted by <strong className={`font-semibold ${totalChange > 0 ? 'text-semantic-pos' : 'text-semantic-neg'}`}>{totalChange > 0 ? '+' : ''}{totalChange}</strong>. 
+                  During the selected period, overall activations shifted by <strong className={`font-semibold ${totalDirection !== null && totalDirection > 0 ? 'text-semantic-pos' : totalDirection !== null && totalDirection < 0 ? 'text-semantic-neg' : ''}`}>{totalDirection !== null && totalDirection > 0 ? '+' : ''}{label(totalChange)}</strong>.
                   Below are the recorded source contributions to this movement compared to the preceding matched period. This does not establish causation.
                 </div>
               </div>
@@ -78,10 +85,10 @@ export default function Insights() {
               >
                 <div>
                   <div className="text-[13px] font-medium text-text-main">
-                    Source <span className="text-semantic-neg bg-semantic-neg/10 px-1.5 py-0.5 rounded ml-1">{loser.segment}</span> dropped by {Math.abs(loser.change)} activations
+                    Source <span className="text-semantic-neg bg-semantic-neg/10 px-1.5 py-0.5 rounded ml-1">{loser.segment}</span> dropped by {label(absolute(changeOf(loser)!))} activations
                   </div>
                   <div className="text-[12px] text-text-mute mt-1">
-                    Fell from {loser.previous} to {loser.current}. Click to investigate in Explore.
+                    Fell from {label(loser.previous)} to {label(loser.current)}. Click to investigate in Explore.
                   </div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-text-mute group-hover:text-teal transition-colors" />
@@ -110,25 +117,29 @@ export default function Insights() {
             </thead>
             <tbody className="divide-y divide-border-subtle">
               {rows.map((row: any, i: number) => {
-                const isPositive = row.change > 0;
-                const isNegative = row.change < 0;
+                const change = changeOf(row);
+                const direction = change === null ? null : compareExactDecimal(change, '0');
+                const isPositive = direction !== null && direction > 0;
+                const isNegative = direction !== null && direction < 0;
                 return (
                   <tr key={i} className="hover:bg-surface-sec">
                     <td className="font-medium">{row.segment}</td>
-                    <td className="text-right text-text-sec">{row.previous}</td>
-                    <td className="text-right font-medium">{row.current}</td>
+                    <td className="text-right text-text-sec">{label(row.previous)}</td>
+                    <td className="text-right font-medium">{label(row.current)}</td>
                     <td className="text-right">
-                      {row.change !== 0 && (
+                      {direction !== null && direction !== 0 && change !== null && (
                         <span className={`inline-flex items-center ${isPositive ? 'text-semantic-pos' : 'text-semantic-neg'}`}>
-                          {isPositive ? '+' : ''}{row.change}
+                          {isPositive ? '+' : ''}{label(change)}
                         </span>
                       )}
-                      {row.change === 0 && <span className="text-text-mute">-</span>}
+                      {direction === 0 && <span className="text-text-mute">-</span>}
+                      {direction === null && <span className="text-text-mute">Unavailable</span>}
                     </td>
                     <td>
                       {isPositive && <div className="flex items-center text-semantic-pos text-[12px]"><ArrowUpRight className="w-3.5 h-3.5 mr-1" /> Positive Driver</div>}
                       {isNegative && <div className="flex items-center text-semantic-neg text-[12px]"><ArrowDownRight className="w-3.5 h-3.5 mr-1" /> Negative Driver</div>}
-                      {row.change === 0 && <div className="text-text-mute text-[12px]">Neutral</div>}
+                      {direction === 0 && <div className="text-text-mute text-[12px]">Neutral</div>}
+                      {direction === null && <div className="text-text-mute text-[12px]">Unavailable</div>}
                     </td>
                   </tr>
                 );

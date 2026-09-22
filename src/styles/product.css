@@ -138,3 +138,6 @@
   .cx-app .vetting-kpis article { padding:10px 8px; }
   .cx-app .vetting-kpis strong { font-size:22px; }
 }
+.cx-section-unavailable { display:flex; align-items:flex-start; gap:.75rem; padding:1rem; border:1px solid #e6b85c; background:#fff9ed; color:#704a08; border-radius:.5rem; }
+.cx-section-unavailable strong { display:block; color:#4b340b; }
+.cx-section-unavailable p { margin:.2rem 0 0; font-size:.875rem; }

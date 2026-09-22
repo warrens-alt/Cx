@@ -1,4 +1,5 @@
 import './styles/reportBrowsing.css';
+import './styles/operations.css';
 import React, { Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, Link } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
@@ -37,6 +38,9 @@ const RoutingIntelligence = React.lazy(() => import('./pages/RoutingIntelligence
 const ConsumerReentry = React.lazy(() => import('./pages/ConsumerReentry'));
 const DataTrust = React.lazy(() => import('./pages/DataTrust'));
 const Revetting = React.lazy(() => import('./pages/Revetting'));
+const VendorPerformance = React.lazy(() => import('./pages/VendorPerformance'));
+const Exceptions = React.lazy(() => import('./pages/Exceptions'));
+const CommercialReconciliation = React.lazy(() => import('./pages/CommercialReconciliation'));
 
 
 function Shell() {
@@ -45,7 +49,7 @@ function Shell() {
   const [mobile,setMobile]=useState(false), [sidebar,setSidebar]=useState(true), [command,setCommand]=useState(false);
   const [filtersOpen,setFiltersOpen]=useState(false);
   const [density,setDensity]=useState<TableDensity>(()=>{try{return safeDensity(localStorage.getItem(DENSITY_KEY));}catch{return 'comfortable';}});
-  const evidencePage=location.pathname==='/reports'||location.pathname==='/';
+  const evidencePage=['/reports','/vendors','/exceptions','/reconciliation','/'].includes(location.pathname);
   useEffect(()=>{try{localStorage.setItem(DENSITY_KEY,density);}catch{}},[density]);
   useEffect(()=>{
     setMobile(false);
@@ -83,6 +87,9 @@ function Shell() {
             {clientReady && <Routes>
               <Route path="/" element={<Navigate to="/reports" replace />} />
               <Route path="/reports" element={<VersionedReports key={selectedClient} />} />
+              <Route path="/vendors" element={<VendorPerformance key={selectedClient} />} />
+              <Route path="/exceptions" element={<Exceptions key={selectedClient} />} />
+              <Route path="/reconciliation" element={<CommercialReconciliation key={selectedClient} />} />
               <Route path="/vetting" element={<Vetting key={selectedClient} />} />
               <Route path="/visuals" element={<VisualWorkspace />} />
               <Route path="/overview" element={<Overview />} />
